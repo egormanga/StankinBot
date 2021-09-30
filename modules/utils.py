@@ -1,7 +1,10 @@
 # StankinBot utility module
 
-import abc, inspect
+import inspect
+from abc import ABCMeta, abstractmethod, abstractproperty
 from types import FunctionType
+
+__all__ = ('abstractmethod', 'abstractproperty')
 
 def decorator(f): return f  # just for documenting/readability purposes via '@', instead of comments
 
@@ -16,13 +19,14 @@ def export(x):
 	all.append(x.__name__.rpartition('.')[-1])
 	return x
 export(export)  # itself
+export(decorator)
 
-class XABCMeta(abc.ABCMeta):
+class XABCMeta(ABCMeta):
 	def __new__(metacls, name, bases, classdict):
 		annotations = classdict.get('__annotations__', {})
 		classdict['__slots__'] = tuple(i for i in annotations if classdict.get(i) is not ...)
-		classdict.update({i: abc.abstractproperty() for i in annotations if classdict.get(i) is ...})
-		classdict.update({k: abc.abstractmethod(v) for v in classdict.items()  # `def f(): ...`
+		classdict.update({i: abstractproperty() for i in annotations if classdict.get(i) is ...})
+		classdict.update({k: abstractmethod(v) for v in classdict.items()  # `def f(): ...`
 		                                       if isinstance(v, FunctionType) and v.__code__.co_code == b'd\x00S\x00' and v.__code__.co_consts == (None,)})
 
 		if ('__init__' not in classdict):
@@ -40,6 +44,7 @@ class XABCMeta(abc.ABCMeta):
 @export
 class XABC(metaclass=XABCMeta): pass
 
+@export
 @decorator
 class classproperty:
 	def __init__(self, f):
@@ -47,6 +52,20 @@ class classproperty:
 
 	def __get__(self, obj, cls):
 		return self.f(cls)
+
+@export
+class lc:
+	__slots__ = ('category', 'lc', 'pl')
+
+	def __init__(self, lc: str, category: int = locale.LC_ALL):
+		self.lc, self.category = lc, category
+
+	def __enter__(self):
+		self.pl = locale.setlocale(self.category)
+		locale.setlocale(self.category, self.lc)
+
+	def __exit__(self, type, value, tb):
+		locale.setlocale(self.category, self.pl)
 
 # by Sdore, 2021
 # stbot.sdore.me
