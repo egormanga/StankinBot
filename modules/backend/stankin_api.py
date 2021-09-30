@@ -75,10 +75,10 @@ class StankinAPIModule(BackendModule):
 
 	async def parseNewsArticle(art):  # returns str of plaintext-ready message
 		with lc('ru_RU.UTF-8'):
-			output = re.sub(r'( 00:00:\d\d)|( 23:59:\d\d)','',time.strftime("%c",time.strptime(re.sub(r'\.\d+', '', art.get('date') + "00"), '%Y-%m-%d %H:%M:%S%z'))) + "\n"
+			output = re.sub(r'( 00:00:\d\d)|( 23:59:\d\d)', '', time.strftime("%c", time.strptime(re.sub(r'\.\d+', '', art.get('date') + "00"), '%Y-%m-%d %H:%M:%S%z'))) + "\n"
 		output += art.get('title') + "\n\n" + "https://stankin.ru/news/item_" + str(art.get('id'))
 		if (short_text := art.get('short_text')):
-			output += '\n\n' + short_text
+			output += "\n\n" + short_text
 		return output
 
 # by Sdore and BasedUser, 2021
