@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import re, time, aiohttp
-
 from . import BackendModule
 from ..utils import *
 
@@ -53,7 +52,6 @@ class StankinAPIModule(BackendModule):
 	events = []
 
 	api_url = "https://stankin.ru/api_entry.php"
-	base_url = "https://stankin.ru"  # note: no trailing /
 
 	async def _call(self, action, **data):
 		async with aiohttp.request('POST', self.api_url, headers={'Content-Type': 'application/json'}, json={'action': action, 'data': data}) as r:
@@ -73,13 +71,13 @@ class StankinAPIModule(BackendModule):
 	async def getSubdivision(self, id):
 		return Category(**await self._call('getSubdivision', id=id))
 
-	async def parseNewsArticle(art):  # returns str of plaintext-ready message
+	async def parseNewsArticle(art) -> plaintext[str]:
 		with lc('ru_RU.UTF-8'):
-			output = re.sub(r'( 00:00:\d\d)|( 23:59:\d\d)', '', time.strftime("%c", time.strptime(re.sub(r'\.\d+', '', art.get('date') + "00"), '%Y-%m-%d %H:%M:%S%z'))) + "\n"
-		output += art.get('title') + "\n\n" + "https://stankin.ru/news/item_" + str(art.get('id'))
+			output = re.sub(r'\ (00:00|23:59):\d{2}', '', time.strftime("%c", time.strptime(re.sub(r'\.\d+', '', art.get('date') + "00"), '%Y-%m-%d %H:%M:%S%z'))) + '\n'
+		output += art.get('title') + '\n\n' + "https://stankin.ru/news/item_" + str(art.get('id'))
 		if (short_text := art.get('short_text')):
-			output += "\n\n" + short_text
+			output += '\n\n' + short_text
 		return output
 
-# by Sdore and BasedUser, 2021
+# by Sdore & BasedUser, 2021
 # stbot.sdore.me
