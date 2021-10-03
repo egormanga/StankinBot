@@ -1,10 +1,8 @@
 # StankinBot utility module
 
-import inspect
+import locale, inspect
 from abc import ABCMeta, abstractmethod, abstractproperty
 from types import FunctionType
-
-__all__ = ('abstractmethod', 'abstractproperty')
 
 def decorator(f): return f  # just for documenting/readability purposes via '@', instead of comments
 
@@ -21,28 +19,40 @@ def export(x):
 export(export)  # itself
 export(decorator)
 
+export(abstractmethod)
+export(abstractproperty)
+
+@export
+def first(x): return next(iter(x))
+
+@export
+def assert_(x): assert (x); return True
+
 class XABCMeta(ABCMeta):
 	def __new__(metacls, name, bases, classdict):
 		annotations = classdict.get('__annotations__', {})
-		classdict['__slots__'] = tuple(i for i in annotations if classdict.get(i) is not ...)
+		classdict['__slots__'] = tuple(k for k, v in annotations.items() if classdict.get(k) is not ...)
+		if (conflicts := {i: c for i in classdict['__slots__'] if (c := metacls.conflicts(i, bases)) is not None}):
+			raise ValueError(f"There are conflicts between members of {name} and its bases: {', '.join(f'{i} in {c}' for i, c in conflicts.items())}")
 		classdict.update({i: abstractproperty() for i in annotations if classdict.get(i) is ...})
 		classdict.update({k: abstractmethod(v) for v in classdict.items()  # `def f(): ...`
 		                                       if isinstance(v, FunctionType) and v.__code__.co_code == b'd\x00S\x00' and v.__code__.co_consts == (None,)})
-
-		if ('__init__' not in classdict):
-			def __init__(self, *args, **kwargs):
-				for i in self.__slots__:
-					setattr(self, i, kwargs.pop(i))
-
-				if (bases): super(bases[0], self).__init__(*args) # TODO: kwargs
-
-				if (kwargs): raise TypeError(f"{name}.__init__() got extra argument{'s'*(len(kwargs) > 1)}: {', '.join(kwargs)}")
-			classdict['__init__'] = __init__
-
 		return super().__new__(metacls, name, bases, classdict)
 
+	@classmethod
+	def conflicts(cls, name, bases):
+		for c in bases:
+			if (name in getattr(c, '__slots__', ())): return c.__name__
+			if ((r := cls.conflicts(name, c.__bases__)) is not None): return r
+
 @export
-class XABC(metaclass=XABCMeta): pass
+class XABC(metaclass=XABCMeta):
+	def __init__(self, **kwargs):
+		for i in self.__slots__:
+			if (self.__annotations__.get(i) not in (..., '...')):
+				setattr(self, i, kwargs.pop(i))
+
+		if (kwargs): raise TypeError(f"{self.__class__.__name__}.__init__() got extra argument{'s'*(len(kwargs) > 1)}: {', '.join(kwargs)}")
 
 @export
 @decorator

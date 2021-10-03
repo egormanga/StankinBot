@@ -47,6 +47,7 @@ class Article(XABC):
 	is_main: bool
 	delta: {'ops': [dict]}
 
+@export
 class StankinAPIModule(BackendModule):
 	events = []
 
