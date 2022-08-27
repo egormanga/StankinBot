@@ -1,5 +1,9 @@
 # StankinBot Backend module base class
 
+""" Бэкенд
+Модули обработки данных или взаимодействия с внешними сервисами.
+"""
+
 from .. import Module
 from ..utils import *
 
@@ -7,5 +11,5 @@ from ..utils import *
 class BackendModule(Module):
 	pass
 
-# by Sdore, 2021
-# stbot.sdore.me
+# by Sdore, 2021-22
+#  stbot.sdore.me

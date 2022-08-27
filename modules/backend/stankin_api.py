@@ -53,6 +53,8 @@ class StankinAPIModule(BackendModule):
 
 	api_url = "https://stankin.ru/api_entry.php"
 
+	session: token[str]
+
 	async def _call(self, action, **data):
 		async with aiohttp.request('POST', self.api_url, headers={'Content-Type': 'application/json'}, json={'action': action, 'data': data}) as r:
 			r = await r.json()
@@ -79,5 +81,5 @@ class StankinAPIModule(BackendModule):
 			output += '\n\n' + short_text
 		return output
 
-# by Sdore & BasedUser, 2021
-# stbot.sdore.me
+# by Sdore & BasedUser, 2021-22
+#  stbot.sdore.me

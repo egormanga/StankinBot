@@ -1,6 +1,6 @@
 # StankinBot utility module
 
-import locale, inspect
+import locale, inspect, functools, collections
 from abc import ABCMeta, abstractmethod, abstractproperty
 from types import FunctionType
 
@@ -28,15 +28,33 @@ def first(x): return next(iter(x))
 @export
 def assert_(x): assert (x); return True
 
+@export
+@decorator
+class classproperty:
+	def __init__(self, f):
+		self.__func__ = f
+
+	def __get__(self, obj, cls):
+		return self.__func__(cls)
+
+def get_property_annotations(p):
+	if (isinstance(p, property)): p = p.fget
+	elif (isinstance(p, classproperty)): p = p.__func__
+	elif (isinstance(p, functools.cached_property)): p = p.func
+	return p.__annotations__
+
 class XABCMeta(ABCMeta):
 	def __new__(metacls, name, bases, classdict):
 		annotations = classdict.get('__annotations__', {})
-		classdict['__slots__'] = tuple(k for k, v in annotations.items() if classdict.get(k) is not ...)
+
+		classdict['__slots__'] = tuple(k for k, v in annotations.items() if (p := classdict.get(k)) is not ... and not (isinstance(p, (property, classproperty, functools.cached_property)) and (ra := get_property_annotations(p).get('return')) and ra == v))
+
 		if (conflicts := {i: c for i in classdict['__slots__'] if (c := metacls.conflicts(i, bases)) is not None}):
 			raise ValueError(f"There are conflicts between members of {name} and its bases: {', '.join(f'{i} in {c}' for i, c in conflicts.items())}")
-		classdict.update({i: abstractproperty() for i in annotations if classdict.get(i) is ...})
-		classdict.update({k: abstractmethod(v) for v in classdict.items()  # `def f(): ...`
-		                                       if isinstance(v, FunctionType) and v.__code__.co_code == b'd\x00S\x00' and v.__code__.co_consts == (None,)})
+
+		classdict.update({i: abstractproperty() for i in annotations if classdict.get(i) is ...})  # `x: ...`
+		classdict.update({k: abstractmethod(v) for v in classdict.items() if isinstance(v, FunctionType) and v.__code__.co_code == b'd\0S\0' and v.__code__.co_consts == (None,)})  # `def f(): ...`
+
 		return super().__new__(metacls, name, bases, classdict)
 
 	@classmethod
@@ -46,22 +64,59 @@ class XABCMeta(ABCMeta):
 			if ((r := cls.conflicts(name, c.__bases__)) is not None): return r
 
 @export
-class XABC(metaclass=XABCMeta):
+class XABC(metaclass=XABCMeta): # TODO: verify property types
 	def __init__(self, **kwargs):
 		for i in self.__slots__:
-			if (self.__annotations__.get(i) not in (..., '...')):
+			a = str(self.__annotations__.get(i))
+			if (not a.startswith('...') and not a.startswith('--')):
 				setattr(self, i, kwargs.pop(i))
 
 		if (kwargs): raise TypeError(f"{self.__class__.__name__}.__init__() got extra argument{'s'*(len(kwargs) > 1)}: {', '.join(kwargs)}")
 
 @export
-@decorator
-class classproperty:
-	def __init__(self, f):
-		self.f = f
+class DictAttrProxy(collections.UserDict):
+	""" Прокси для доступа к ключам по атрибутам. """
 
-	def __get__(self, obj, cls):
-		return self.f(cls)
+	def __init__(self, dict=None, /, **kwargs):
+		super().__setattr__('data', {})
+		if (dict is not None): self.update(dict)
+		if (kwargs): self.update(kwargs)
+
+	def __getitem__(self, x):
+		DictAttrProxy = self.__class__
+		r = super().__getitem__(x)
+		if (isinstance(r, dict) and not isinstance(r, DictAttrProxy)): return DictAttrProxy(r)
+		else: return r
+
+	def __getattr__(self, x):
+		d = self.__getattribute__('data')
+		try: return getattr(d, x)
+		except AttributeError as ex:
+			try: return self[x]
+			except KeyError as ex: e = ex
+		e.__suppress_context__ = True
+		raise AttributeError(*e.args) from e.with_traceback(None)
+
+	def __setattr__(self, k, v):
+		self.__setitem__(k, v)
+
+	def __delattr__(self, x):
+		self.__delitem__(x)
+
+@export
+class DefaultDictAttrProxy(DictAttrProxy):
+	def __init__(self, default, /, *args, **kwargs):
+		super().__init__(*args, **kwargs)
+		super(collections.UserDict, self).__setattr__('default_factory', default)
+
+	def __getitem__(self, x):
+		try: return super().__getitem__(x)
+		except KeyError: return self.__missing__()
+
+	def __missing__(self, x):
+		if (self.default_factory is None): raise KeyError(x)
+		r = self[x] = self.default_factory()
+		return r
 
 @export
 class lc:
@@ -77,5 +132,5 @@ class lc:
 	def __exit__(self, type, value, tb):
 		locale.setlocale(self.category, self.pl)
 
-# by Sdore, 2021
-# stbot.sdore.me
+# by Sdore, 2021-22
+#  stbot.sdore.me
