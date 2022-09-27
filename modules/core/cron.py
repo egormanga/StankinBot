@@ -30,6 +30,9 @@ class CronModule(CoreModule):
 	is_running: -- bool
 	job_added: -- asyncio.Event
 
+	# internal:
+	_task: -- asyncio.Task
+
 	def __init__(self, bot, **kwargs):
 		super().__init__(bot, **kwargs)
 		self.is_running = bool()
@@ -37,7 +40,7 @@ class CronModule(CoreModule):
 
 	async def start(self):
 		self.is_running = True
-		asyncio.create_task(self._run())
+		self._task = asyncio.create_task(self._run())
 
 	async def _run(self):
 		while (self.is_running):
@@ -45,6 +48,9 @@ class CronModule(CoreModule):
 
 	async def stop(self):
 		self.is_running = False
+		try: self._task
+		except AttributeError: pass
+		else: await self._task
 
 	async def proc(self):
 		now = time.time()
