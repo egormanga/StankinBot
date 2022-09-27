@@ -1,4 +1,4 @@
-# StankinBot StankinAPI backend module
+# StankinBot Stankin API backend module
 
 from __future__ import annotations
 
@@ -52,8 +52,6 @@ class StankinAPIModule(BackendModule):
 	events = []
 
 	api_url = "https://stankin.ru/api_entry.php"
-
-	session: token[str]
 
 	async def _call(self, action, **data):
 		async with aiohttp.request('POST', self.api_url, headers={'Content-Type': 'application/json'}, json={'action': action, 'data': data}) as r:

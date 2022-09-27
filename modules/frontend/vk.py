@@ -9,7 +9,10 @@ from ..utils import *
 class VKApi(XABC):
 	api_url = "https://api.vk.com"
 
+	# public:
 	token: str
+
+	# private:
 	webhook_unix: str
 	app: -- web.Application
 	runner: -- web.AppRunner
