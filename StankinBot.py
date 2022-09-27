@@ -22,10 +22,12 @@ class Bot(XABC):
 				self.register_module(moduleclass)
 
 	async def run(self):
+		print("\r\033[K\033[2mInitializing…\033[0m", end='', flush=True, file=sys.stderr)
 		await self.init_modules()
+		print("\r\033[K\033[2mStarting…\033[0m", end='', flush=True, file=sys.stderr)
 		await self.start_modules()
 
-		print("\033[1mStarted.\033[0m")
+		print("\r\033[K\033[1mStarted.\033[0m", flush=True, file=sys.stderr)
 
 		try: await asyncio.sleep(float('inf'))
 		except asyncio.CancelledError as ex:
@@ -43,33 +45,33 @@ class Bot(XABC):
 		m = moduleclass(self, **conf or {})
 		self.modules[moduleclass.type][moduleclass.name] = m
 
-	@staticmethod
-	def _format_exc(ex):
-		return str().join(traceback.format_exception_only(type(ex), ex)).strip()
-
 	async def init_modules(self):
 		for i in self.modules.values():
 			for m in i.values():
+				print(f"\r\033[K\033[2mInitializing…  [\033[3m{m}\033[23m]\033[22m", end='', flush=True, file=sys.stderr)
 				try: await m.init()
-				except Exception as ex: print(f"Failed to init module {m}: {self._format_exc(ex)}"); traceback.print_exc()
+				except Exception as ex: print(f"Failed to init module {m}: {format_exc(ex)}"); traceback.print_exc()
 
 	async def start_modules(self):
 		for i in self.modules.values():
 			for m in i.values():
+				print(f"\r\033[K\033[2mStarting…  [\033[3m{m}\033[23m]\033[22m", end='', flush=True, file=sys.stderr)
 				try: await m.start()
-				except Exception as ex: print(f"Failed to start module {m}: {self._format_exc(ex)}"); traceback.print_exc()
+				except Exception as ex: print(f"Failed to start module {m}: {format_exc(ex)}"); traceback.print_exc()
 
 	async def stop_modules(self):
 		for i in self.modules.values():
 			for m in i.values():
+				print(f"\r\033[K\033[2mStopping…  [\033[3m{m}\033[23m]\033[22m", end='', flush=True, file=sys.stderr)
 				try: await m.stop()
-				except Exception as ex: print(f"Failed to stop module {m}: {self._format_exc(ex)}"); traceback.print_exc()
+				except Exception as ex: print(f"Failed to stop module {m}: {format_exc(ex)}"); traceback.print_exc()
 
 	async def unload_modules(self):
 		for i in self.modules.values():
 			for m in i.values():
+				print(f"\r\033[K\033[2mUnloading…  [\033[3m{m}\033[23m]\033[22m", end='', flush=True, file=sys.stderr)
 				try: await m.unload()
-				except Exception as ex: print(f"Failed to unload module {m}: {self._format_exc(ex)}"); traceback.print_exc()
+				except Exception as ex: print(f"Failed to unload module {m}: {format_exc(ex)}"); traceback.print_exc()
 
 # by Sdore, 2021-22
 #  stbot.sdore.me

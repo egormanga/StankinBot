@@ -1,6 +1,6 @@
 # StankinBot utility module
 
-import locale, inspect, functools, importlib, collections
+import locale, inspect, functools, importlib, traceback, collections
 from abc import ABCMeta, abstractmethod, abstractproperty
 from types import ModuleType, FunctionType
 
@@ -29,6 +29,9 @@ def first(x): return next(iter(x))
 def assert_(x): assert (x); return True
 
 @export
+def format_exc(ex): return str().join(traceback.format_exception_only(type(ex), ex)).strip()
+
+@export
 @decorator
 class classproperty:
 	def __init__(self, f):
@@ -43,6 +46,7 @@ def get_property_annotations(p):
 	elif (isinstance(p, functools.cached_property)): p = p.func
 	return p.__annotations__
 
+@export
 def recursive_reload(module):
 	""" Рекурсивно перезагрузить модуль `module'. """
 

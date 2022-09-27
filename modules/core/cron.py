@@ -44,11 +44,14 @@ class CronModule(CoreModule):
 
 	async def _run(self):
 		while (self.is_running):
-			await self.proc()
+			try: await self.proc()
+			except asyncio.CancelledError:
+				if (self.is_running): raise
 
 	async def stop(self):
 		self.is_running = False
-		try: self._task
+		self.job_added.set()
+		try: self._task.cancel()
 		except AttributeError: pass
 		else: await self._task
 
