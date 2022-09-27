@@ -1,8 +1,8 @@
 # StankinBot utility module
 
-import locale, inspect, functools, collections
+import locale, inspect, functools, importlib, collections
 from abc import ABCMeta, abstractmethod, abstractproperty
-from types import FunctionType
+from types import ModuleType, FunctionType
 
 def decorator(f): return f  # just for documenting/readability purposes via '@', instead of comments
 
@@ -42,6 +42,16 @@ def get_property_annotations(p):
 	elif (isinstance(p, classproperty)): p = p.__func__
 	elif (isinstance(p, functools.cached_property)): p = p.func
 	return p.__annotations__
+
+def recursive_reload(module):
+	""" Рекурсивно перезагрузить модуль `module'. """
+
+	importlib.reload(module)
+	return # XXX FIXME
+
+	for i in vars(module).values():
+		if (isinstance(i, ModuleType)):
+			recursive_reload(i)
 
 class XABCMeta(ABCMeta):
 	def __new__(metacls, name, bases, classdict):

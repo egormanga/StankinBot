@@ -3,8 +3,7 @@
 
 from __future__ import annotations
 
-import sys, yaml, os.path, asyncio, operator, importlib, traceback
-from collections import defaultdict
+import sys, asyncio, operator, importlib, traceback
 from .modules import Module
 from .modules.utils import *
 
@@ -28,13 +27,15 @@ class Bot(XABC):
 
 		print("\033[1mStarted.\033[0m")
 
-		try:
-			await asyncio.sleep(float('inf')) # TODO
+		try: await asyncio.sleep(float('inf'))
+		except asyncio.CancelledError as ex:
+			if (ex.args): print(f"\r\033[K\033[3m{ex.args[0]}\033[0m", file=sys.stderr)
 		finally:
-			print("\r\033[K\033[2mShutting down...\033[0m", end='', flush=True, file=sys.stderr)
+			print("\r\033[K\033[2mStopping…\033[0m", end='', flush=True, file=sys.stderr)
 			await self.stop_modules()
+			print("\r\033[K\033[2mShutting down…\033[0m", end='', flush=True, file=sys.stderr)
 			await self.unload_modules()
-			print("\r\033[K\033[1mExit.\033[0m", end='', flush=True, file=sys.stderr)
+			print("\r\033[K\033[1mExit.\033[0m", flush=True, file=sys.stderr)
 
 	def register_module(self, moduleclass):
 		path = moduleclass.__module__.partition('modules.')[2]
@@ -69,15 +70,6 @@ class Bot(XABC):
 			for m in i.values():
 				try: await m.unload()
 				except Exception as ex: print(f"Failed to unload module {m}: {self._format_exc(ex)}"); traceback.print_exc()
-
-def main():
-	config = DictAttrProxy(yaml.safe_load(open(os.path.join(os.path.dirname(__file__), 'config.yml'))))
-	bot = Bot(config)
-
-	try: asyncio.run(bot.run())
-	except KeyboardInterrupt as ex: exit(ex)
-
-if (__name__ == '__main__'): exit(main())
 
 # by Sdore, 2021-22
 #  stbot.sdore.me
