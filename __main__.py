@@ -5,9 +5,9 @@ import os, yaml, asyncio, traceback, watchfiles
 from .modules.utils import format_exc, recursive_reload, DictAttrProxy
 
 def _handle_task_result(task: asyncio.Task):
-	try: task.result()
-	except asyncio.CancelledError: pass
-	except Exception as ex: print(f"Error in task {task}: {format_exc(ex)}"); traceback.print_exc()
+	try: return task.result()
+	except asyncio.CancelledError: raise
+	except Exception as ex: print(f"Error in task {task}: {format_exc(ex)}"); traceback.print_exc(); raise
 
 async def main():
 	srcdir = os.path.dirname(__file__)
@@ -18,12 +18,15 @@ async def main():
 
 			from . import StankinBot as stankin_bot
 			bot = stankin_bot.Bot(config)
+			await bot.run(); break # XXX
 			task = asyncio.create_task(bot.run())
 			task.add_done_callback(_handle_task_result)
 
-			async for changes in watchfiles.awatch(srcdir):
-				task.cancel("Source has changed, reloading.")
-				break
+			try:
+				async for changes in watchfiles.awatch(srcdir):
+					task.cancel("Source has changed, reloading.")
+					break
+			except RuntimeError: pass
 
 			try: await task
 			except asyncio.CancelledError: pass
