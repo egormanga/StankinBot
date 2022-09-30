@@ -25,7 +25,7 @@ class APIModule(CoreModule):
 	_site: -- web.UnixSite
 
 	async def init(self):
-		app = self.app = web.Application()
+		app = self.app = web.Application(middlewares=(web.normalize_path_middleware(),))
 		app.add_routes((
 			web.get('/schedule/', self.handle_schedule),
 			web.get('/schedule/groups/', self.handle_schedule_groups),
