@@ -23,7 +23,15 @@ export(abstractmethod)
 export(abstractproperty)
 
 @export
-def first(x): return next(iter(x))
+def first(it): return next(iter(it))
+@export
+def only(it):
+        it = iter(it)
+        try: return next(it)
+        finally:
+                try: next(it)
+                except StopIteration: pass
+                else: raise StopIteration("Only a single value expected")
 
 @export
 def assert_(x): assert (x); return True
