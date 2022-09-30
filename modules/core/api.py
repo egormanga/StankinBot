@@ -27,7 +27,8 @@ class APIModule(CoreModule):
 	async def init(self):
 		app = self.app = web.Application()
 		app.add_routes((
-			web.get('/schedule', self.handle_schedule),
+			web.get('/schedule/', self.handle_schedule),
+			web.get('/schedule/groups/', self.handle_schedule_groups),
 		))
 
 	async def start(self):
@@ -49,6 +50,9 @@ class APIModule(CoreModule):
 		except KeyError: raise web.HTTPNotFound(reason="No schedule for this group.")
 
 		return web.json_response(schedule.to_json())
+
+	async def handle_schedule_groups(self, request):
+		return web.json_response(tuple(self.bot.modules.backend.schedule.schedules))
 
 # by Sdore, 2022
 # stbot.sdore.me
