@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-import sys, asyncio, operator, importlib, traceback
+import sys, time, asyncio, operator, importlib, traceback
 from .modules import Module
 from .modules.utils import *
 
@@ -24,12 +24,15 @@ class Bot(XABC):
 
 	async def run(self):
 		try:
+			started_at = time.time()
 			print("\r\033[K\033[2mInitializing…\033[0m", end='', flush=True, file=sys.stderr)
 			await self.init_modules()
+			init_time = time.time()
 			print("\r\033[K\033[2mStarting…\033[0m", end='', flush=True, file=sys.stderr)
 			await self.start_modules()
+			start_time = time.time()
 
-			print("\r\033[K\033[1mStarted.\033[0m", flush=True, file=sys.stderr)
+			print(f"\r\033[K\033[1mStarted\033[0m in ({round((init_time - started_at), 1)} init + {round((start_time - init_time), 1)} start = {round(start_time - started_at, 1)}) sec.\033[0m", flush=True, file=sys.stderr)
 			await asyncio.sleep(float('inf'))
 		except asyncio.CancelledError as ex:
 			if (ex.args): print(f"\r\033[K\033[3m{ex.args[0]}\033[0m", file=sys.stderr)
