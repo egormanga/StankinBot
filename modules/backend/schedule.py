@@ -2,22 +2,154 @@
 
 from __future__ import annotations
 
-import io, bs4, tabula, urllib, aiohttp, traceback
+import io, re, bs4, math, tabula, urllib, aiohttp, datetime, traceback, collections
 from . import BackendModule
 from ..utils import *
 
 class Schedule(XABC):
-	pairs: [(time[str], time[str])]
-	table: [[str]]
+	class Pair(XABC):
+		class Location(XABC):
+			room: str
 
-	def __init__(self, pairs, table):
-		super().__init__(pairs=pairs, table=table)
+			def to_json(self):
+				return {
+					'room': self.room,
+					'floor': self.floor,
+					#'building': self.building, # XXX
+				}
+
+			@property
+			def floor(self) -> int | None:
+				if (self.room.startswith('ИГ-')): return 4
+				try: int(self.room.lstrip('0')[0])
+				except ValueError: return None
+
+		class Group(XABC):
+			group: str
+			subgroup: str | None
+
+			def to_json(self):
+				return {
+					'group': self.group,
+					'subgroup': self.subgroup,
+				}
+
+		name: str
+		type: str
+		lecturer: str
+		location: Location
+		group: Group
+		time: (datetime.time, datetime.time)
+		dates: [datetime.date]
+
+		def to_json(self):
+			return {
+				'name': self.name,
+				'type': self.type,
+				'lecturer': self.lecturer,
+				'location': self.location.to_json(),
+				'group': self.group.to_json(),
+				'time': {
+					'start': self.time[0].strftime('%H:%M'),
+					'end': self.time[1].strftime('%H:%M'),
+				},
+				'dates': tuple(map(datetime.date.isoformat, self.dates)),
+			}
+
+		@staticmethod
+		def parse_dates(s, *, year=datetime.date.today().year) -> [datetime.date]:
+			res = list()
+
+			for i in s.casefold().split(','):
+				f, _, t = i.partition('-')
+				f = tuple(map(int, f.split('.')))
+				f = datetime.date(year + (f[1] < 9), *f[::-1])
+
+				if (not t): res.append(f); continue
+
+				t, _, wd = t.partition(' ')
+				t = tuple(map(int, t.split('.')))
+				t = datetime.date(year + (t[1] < 9), *t[::-1])
+
+				wd = wd.replace('.', '')
+
+				ii = int()
+				while (f <= t):
+					if (ii % 2 == 0 or wd != 'чн'):
+						res.append(f)
+					f += datetime.timedelta(weeks=+1)
+
+			return res
+
+		@classmethod
+		def from_str(cls, s, group, time):
+			name = s
+
+			m = re.match(r'''
+				\s*(?P<name>.+?)\.
+				\s*(?:(?P<lecturer>[\w .]+)\.)?
+				\s*(?P<type>[\w ]+)\.
+				\s*(?:\((?P<subgroup>\w)\)\.)?
+				\s*(?P<room>.+)\.
+				\s*\[(?P<dates>.*)\]
+			''', s, re.X)
+			if (m is None): print(s)
+
+			name = m['name']
+			lecturer = (m['lecturer'].rstrip('.')+'.' if (m['lecturer']) else None)
+			type = m['type']
+			subgroup = m['subgroup'] or None
+			room = m['room']
+			dates = cls.parse_dates(m['dates'])
+
+			location = cls.Location(room=room)
+			group = cls.Group(group=group, subgroup=subgroup)
+
+			return cls(name=name, type=type, lecturer=lecturer, location=location, group=group, time=time, dates=dates)
+
+	group: str
+	pairs: [[[Pair]]]
 
 	def to_json(self):
 		return {
-			'pairs': self.pairs,
-			'table': self.table,
+			'pairs': [[[i.to_json() for i in pair] for pair in day] for day in self.pairs],
 		}
+
+	@classmethod
+	def from_table(cls, group, table) -> Schedule:
+		yoffs = tuple(int(only({top for i in day if (top := i['top'])})) for day in table)
+		yoff = yoffs[0]
+		ydiff = int()
+		for i in range(1, len(yoffs)):
+			ydiff = max(ydiff, (yoffs[-i] - yoffs[-i-1]))
+
+		times, *table = table
+		times = tuple(tuple(map(lambda x: datetime.time(*map(int, x.split(':'))), i['text'].split('-', maxsplit=1))) for i in times[1:])
+
+		pairs = collections.defaultdict(lambda: [set() for _ in times])
+
+		for day in table:
+			wd = only({wd for i in day if (wd := math.ceil((int(i['top']) - yoff) / ydiff))})
+			for ii, i in enumerate(day[1:]):
+				width = round(i['width'] / 94)
+				text = i['text'].replace('\r', '\n').strip()
+				if (not text): continue
+				else: assert (width > 0)
+
+				p = set()
+				s = str()
+				for t in text.split('\n'):
+					s += ' '+t
+					if (']' in s):
+						t, br, s = map(str.strip, s.partition(']'))
+						p.add(cls.Pair.from_str(t+br, group, times[wd-1]))
+
+				for o in range(width):
+					pairs[wd-1][ii+o] |= p
+
+		pairs = tuple(pairs.values())
+
+		return cls(group=group, pairs=pairs)
 
 @export
 class ScheduleModule(BackendModule):
@@ -33,7 +165,6 @@ class ScheduleModule(BackendModule):
 
 	async def init(self):
 		self.schedules = await self.load_schedules()
-		print(tuple(self.schedules))
 
 	async def get_schedule_folder_ids(self) -> [course_id[int]]:
 		page = await self.bot.modules.backend.edu_api.get_course(self.schedule_course_id)
@@ -46,8 +177,7 @@ class ScheduleModule(BackendModule):
 		urls = dict()
 		for i in ids:
 			page = await self.bot.modules.backend.edu_api.get_folder(i)
-			urls |= {i.text.strip().rpartition('.pdf')[0].upper(): i['href'] for i in page.find_all('a')}
-			break # XXX
+			urls |= {k: i['href'] for i in page.find_all('a') if (k := i.text.strip().rpartition('.pdf')[0].upper())}
 		return urls
 
 	async def load_schedules(self) -> dict[str -- group, Schedule]:
@@ -59,12 +189,11 @@ class ScheduleModule(BackendModule):
 				content = await r.read()
 
 			with io.BytesIO(content) as f:
-				try: data = sum((i['data'] for i in tabula.read_pdf(f, lattice=True, pages='all', output_format='json')), start=[])
-				except Exception as ex: print(f"Failed to parse schedule for group {group}: {format_exc(ex)}"); traceback.print_exc(); continue
+				try: data = only(i['data'] for i in tabula.read_pdf(f, output_format='json', pages='all', multiple_tables=False, lattice=True))
+				except Exception as ex: print(f"Failed to read schedule pdf for group {group}: {format_exc(ex)}"); traceback.print_exc(); continue
 
-			pairs, *table = [[col['text'].strip().replace('\r', ' ') for col in row[1:]] for row in data]
-			pairs = tuple(tuple(map(str.strip, i.split('-'))) for i in pairs)
-			schedules[group] = Schedule(pairs, table)
+			try: schedules[group] = Schedule.from_table(group, data)
+			except Exception as ex: print(f"Failed to parse schedule for group {group}: {format_exc(ex)}"); traceback.print_exc(); continue
 		return schedules
 
 # by Sdore, 2022
