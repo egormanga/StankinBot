@@ -22,7 +22,7 @@ class APIModule(CoreModule):
 
 	# internal:
 	_runner: -- web.AppRunner
-	_site: -- web.UnixSite
+	_site: -- web.BaseSite
 
 	async def init(self):
 		app = self.app = web.Application(middlewares=(web.normalize_path_middleware(),))
@@ -34,13 +34,21 @@ class APIModule(CoreModule):
 	async def start(self):
 		runner = self._runner = web.AppRunner(self.app)
 		await runner.setup()
+
 		site = self._site = web.UnixSite(runner, self.unix)
 		await site.start()
 
 	async def stop(self):
+		try: self._site
+		except AttributeError: pass
+		else: await self._site.stop()
+
 		try: self._runner
 		except AttributeError: pass
 		else: await self._runner.cleanup()
+
+	async def unload(self):
+		del self.app, self._runner, self._site
 
 	async def handle_schedule(self, request):
 		group = request.query.get('group')

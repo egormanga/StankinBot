@@ -7,6 +7,7 @@ import sys, time, asyncio, operator, importlib, traceback
 from .modules import Module
 from .modules.utils import *
 
+@contextmanager
 class Bot(XABC):
 	config: dict
 	modules: -- dict[dict]

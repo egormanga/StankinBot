@@ -4,7 +4,9 @@ import time, locale, asyncio, inspect, functools, importlib, traceback, collecti
 from abc import ABCMeta, abstractmethod, abstractproperty
 from types import ModuleType, FunctionType
 
-def decorator(f): return f  # just for documenting/readability purposes via '@', instead of comments
+# These are just for documenting/readability purposes via '@', instead of comments:
+def decorator(x): return x
+def contextmanager(x): return x
 
 @decorator
 def export(x):
@@ -18,6 +20,7 @@ def export(x):
 	return x
 export(export)  # itself
 export(decorator)
+export(contextmanager)
 
 export(abstractmethod)
 export(abstractproperty)
@@ -68,6 +71,7 @@ def recursive_reload(module):
 			recursive_reload(i)
 
 @export
+@decorator
 def ensure_async(f):
 	@functools.wraps(f)
 	async def decorated(*args, **kwargs):
@@ -76,6 +80,7 @@ def ensure_async(f):
 	return decorated
 
 @export
+@contextmanager
 class timecounter:
 	__slots__ = ('start', 'end')
 
@@ -171,6 +176,7 @@ class DefaultDictAttrProxy(DictAttrProxy):
 		return r
 
 @export
+@contextmanager
 class lc:
 	__slots__ = ('category', 'lc', 'pl')
 

@@ -12,6 +12,7 @@ from . import CoreModule
 from ..utils import *
 
 class DatabasedField(XABC):
+	@contextmanager
 	class DatabasedProxy(XABC):
 		# public:
 		db: DatabaseModule
@@ -116,6 +117,7 @@ class DatabasedField(XABC):
 	#	finally: self._wlock.release()
 
 @export
+@decorator
 def databased(type): return lambda x: DatabasedField(type, x)
 
 @export
