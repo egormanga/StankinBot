@@ -31,7 +31,7 @@ class JobQueueModule(CoreModule):
 	events = []
 
 	# persistent:
-	@databased
+	@databased('state')
 	class jobs(list): jobs: sorted[[Job]]
 
 	# private:

@@ -158,7 +158,7 @@ class ScheduleModule(BackendModule):
 	schedule_course_id = 11557
 
 	# persistent:
-	@databased
+	@databased('cache')
 	class schedules(dict): schedules: dict[str -- group, Schedule]
 
 	async def init(self):
