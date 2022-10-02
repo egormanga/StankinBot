@@ -13,7 +13,11 @@ from ..utils import *
 
 class Job(XABC):
 	at: time[float]
+	before: time[float]
 	call: function
+
+	def __init__(self, call, *, at, before=float('inf')):
+		super().__init__(call=call, at=at, before=before)
 
 	def __le__(self, other):
 		return (self.at < other.at)
@@ -62,8 +66,9 @@ class CronModule(CoreModule):
 			ii = int()
 			for ii, i in enumerate(jobs):
 				if (now > i.at): break
-				try: asyncio.create_task(i.call())
-				except Exception as ex: raise # TODO, issue #16
+				if (now < i.before):
+					try: asyncio.create_task(i.call())
+					except Exception as ex: raise # TODO, issue #16
 			del jobs[:ii]
 
 		if (jobs): await asyncio.sleep(max(jobs[0].at - int(time.time()) - 1, 0))
