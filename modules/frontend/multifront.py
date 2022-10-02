@@ -1,9 +1,35 @@
 # StankinBot MultiFront frontend module
 
-from collections import defaultdict
-from . import FrontendModule
+""" Модуль MultiFront
+См. https://github.com/egormanga/StankinBot/issues/1
+"""
 
-class MultiFrontModule(FrontendModule):
+from __future__ import annotations
+
+from collections import defaultdict
+from . import PlatformFrontendModule
+from ..utils import *
+
+@export
+class MultiFrontModule(PlatformFrontendModule):
+	# attributes:
+	name = 'multifront'
+	events = []
+
+	# private:
+	fronts: -- dict
+
+	def __init__(self, bot, **kwargs):
+		super().__init__(bot, **kwargs)
+		self.fronts = dict()
+
+	def register_front(self, module):
+		self.fronts[module.name] = module
+
+	def unregister_front(self, module):
+		m = self.fronts.pop(module.name)
+		assert (m is module)
+
 	async def send(self, to, *args, **kwargs):
 		front = self.fronts[to.front]
 		return await front.send(to, *args, **kwargs)
@@ -19,25 +45,6 @@ class MultiFrontModule(FrontendModule):
 			try: res += await front.send_mass(to, *args, **kwargs)
 			except Exception as ex: raise # TODO, issue #16
 		return res
-
-	def command(self, f):
-		for front in self.fronts.values():
-			front.command(f)
-		return f
-
-	def command_unknown(self, f):
-		for front in self.fronts.values():
-			front.command_unknown(f)
-		return f
-
-	def message(self, f):
-		for front in self.fronts.values():
-			front.message(f)
-		return f
-
-	@property
-	def fronts(self):
-		return self.bot.modules.frontend
 
 # by Sdore, 2021-22
 #  stbot.sdore.me

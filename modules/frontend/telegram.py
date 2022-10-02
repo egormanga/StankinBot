@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from . import *
 from tgbot import *
+from ..utils import *
 
 class StankinTGBot(TGBot): pass
 	### TODO
@@ -29,11 +30,17 @@ class TelegramFront(FrontendModule):
 		super().__init__(bot, **kwargs)
 		self.tgbot = StankinTGBot(self.token, webhook_port=webhook_port, webhook_path=webhook_path, webhook_url=webhook_url)
 
+	async def init(self):
+		self.bot.modules.frontend.multifront.register_front(self)
+
 	async def start(self):
 		self.tgbot.start()
 
 	async def stop(self):
 		self.tgbot.stop()
+
+	async def unload(self):
+		self.bot.modules.frontend.multifront.unregister_front(self)
 
 	async def send(self, to, message):
 		assert (to.front == self.name)
