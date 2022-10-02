@@ -12,6 +12,9 @@ class Schedule(XABC):
 		class Location(XABC):
 			room: str
 
+			# properties:
+			floor: -- int | None
+
 			def to_json(self):
 				return {
 					'room': self.room,
@@ -22,7 +25,7 @@ class Schedule(XABC):
 			@property
 			def floor(self) -> int | None:
 				if (self.room.startswith('ИГ-')): return 4
-				try: int(self.room.lstrip('0')[0])
+				try: return int(self.room.lstrip('0')[0])
 				except ValueError: return None
 
 		class Group(XABC):
@@ -41,6 +44,7 @@ class Schedule(XABC):
 		location: Location
 		group: Group
 		time: (datetime.time, datetime.time)
+		breaks: [(datetime.time, datetime.time)]
 		dates: [datetime.date]
 
 		def to_json(self):
@@ -50,15 +54,31 @@ class Schedule(XABC):
 				'lecturer': self.lecturer,
 				'location': self.location.to_json(),
 				'group': self.group.to_json(),
-				'time': { # TODO: перерывы
+				'time': {
 					'start': self.time[0].strftime('%H:%M'),
 					'end': self.time[1].strftime('%H:%M'),
+					'breaks': tuple({'start': s.strftime('%H:%M'), 'end': e.strftime('%H:%M')} for s, e in self.breaks),
 				},
 				'dates': tuple(map(datetime.date.isoformat, self.dates)),
 			}
 
 		@staticmethod
-		def parse_dates(s, *, year=datetime.date.today().year) -> [datetime.date]:
+		def parse_breaks(times: [(datetime.time, datetime.time)]) -> [(datetime.time, datetime.time)]:
+			res = list()
+
+			lastend = None
+			for start, end in times:
+				if (lastend is not None): res.append((lastend, start))
+				t = datetime.datetime(1, 1, 1, start.hour, start.minute, start.second)
+				e = datetime.datetime(1, 1, 1, end.hour, end.minute, end.second)
+				while ((t := t + datetime.timedelta(minutes=+45)) < e):
+					res.append((t.time(), (t := t + datetime.timedelta(minutes=+10)).time()))
+				lastend = end
+
+			return res
+
+		@staticmethod
+		def parse_dates(s: str, *, year=datetime.date.today().year) -> [datetime.date]:
 			res = list()
 
 			for i in s.casefold().split(','):
@@ -83,7 +103,7 @@ class Schedule(XABC):
 			return res
 
 		@classmethod
-		def from_str(cls, s, group, time):
+		def from_str(cls, s, group, times):
 			name = s
 
 			m = re.match(r'''
@@ -101,12 +121,14 @@ class Schedule(XABC):
 			type = m['type']
 			subgroup = m['subgroup'] or None
 			room = m['room']
+			time = (times[0][0], times[-1][1])
+			breaks = cls.parse_breaks(times)
 			dates = cls.parse_dates(m['dates'])
 
 			location = cls.Location(room=room)
 			group = cls.Group(group=group, subgroup=subgroup)
 
-			return cls(name=name, type=type, lecturer=lecturer, location=location, group=group, time=time, dates=dates)
+			return cls(name=name, type=type, lecturer=lecturer, location=location, group=group, time=time, breaks=breaks, dates=dates)
 
 	group: str
 	pairs: [[[Pair]]]
@@ -143,7 +165,7 @@ class Schedule(XABC):
 					s += ' '+t
 					if (']' in s):
 						t, br, s = map(str.strip, s.partition(']'))
-						p.add(cls.Pair.from_str(t+br, group, times[wd-1]))
+						p.add(cls.Pair.from_str(t+br, group, times[ii:ii+width]))
 
 				for o in range(width):
 					pairs[wd-1][ii+o] |= p

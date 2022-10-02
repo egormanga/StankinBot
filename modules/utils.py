@@ -99,7 +99,7 @@ class XABCMeta(ABCMeta):
 	def __new__(metacls, name, bases, classdict):
 		annotations = classdict.get('__annotations__', {})
 
-		classdict['__slots__'] = tuple(k for k, v in annotations.items() if (p := classdict.get(k)) is not ... and not (isinstance(p, (property, classproperty, functools.cached_property)) and (ra := get_property_annotations(p).get('return')) and ra == v))
+		classdict['__slots__'] = tuple(k for k, v in annotations.items() if (p := classdict.get(k)) is not ... and not (isinstance(p, (property, classproperty, functools.cached_property)) and (ra := get_property_annotations(p).get('return')) and ra == v.removeprefix('--').strip()))
 
 		if (conflicts := {i: c for i in classdict['__slots__'] if (c := metacls.conflicts(i, bases)) is not None}):
 			raise ValueError(f"There are conflicts between members of {name} and its bases: {', '.join(f'{i} in {c}' for i, c in conflicts.items())}")
