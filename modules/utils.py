@@ -1,6 +1,6 @@
 # StankinBot utility module
 
-import locale, inspect, functools, importlib, traceback, collections
+import time, locale, inspect, functools, importlib, traceback, collections
 from abc import ABCMeta, abstractmethod, abstractproperty
 from types import ModuleType, FunctionType
 
@@ -42,6 +42,8 @@ def format_exc(ex): return str().join(traceback.format_exception_only(type(ex), 
 @export
 @decorator
 class classproperty:
+	__slots__ = ('__func__',)
+
 	def __init__(self, f):
 		self.__func__ = f
 
@@ -64,6 +66,26 @@ def recursive_reload(module):
 	for i in vars(module).values():
 		if (isinstance(i, ModuleType)):
 			recursive_reload(i)
+
+@export
+class timecounter:
+	__slots__ = ('start', 'end')
+
+	def __init__(self):
+		self.start = self.end = None
+
+	def __enter__(self):
+		self.start = time.perf_counter()
+		return self
+
+	def __exit__(self, exc_type, exc, tb):
+		self.end = time.perf_counter()
+
+	@property
+	def time(self):
+		if (self.start is None): return None
+		elif (self.end is None): return (time.perf_counter() - self.start)
+		else: return (self.end - self.start)
 
 class XABCMeta(ABCMeta):
 	def __new__(metacls, name, bases, classdict):

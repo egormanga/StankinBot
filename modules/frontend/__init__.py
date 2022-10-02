@@ -41,6 +41,8 @@ class Conversation(XABC):
 
 @export
 class FrontendModule(Module):
+	log_color = 92
+
 	User = User
 
 	async def send(self, to: User, message: Message): ...

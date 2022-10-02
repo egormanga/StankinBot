@@ -9,7 +9,7 @@ from ..utils import *
 
 @export
 class BackendModule(Module):
-	pass
+	log_color = 91
 
 # by Sdore, 2021-22
 #  stbot.sdore.me

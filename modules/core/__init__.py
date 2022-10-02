@@ -9,7 +9,7 @@ from ..utils import *
 
 @export
 class CoreModule(Module):
-	pass
+	log_color = 93
 
 # by Sdore, 2021-22
 #  stbot.sdore.me
