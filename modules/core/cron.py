@@ -14,13 +14,17 @@ from ..utils import *
 class Job(XABC):
 	at: time[float]
 	before: time[float]
+	cancelled: bool
 	call: function
 
-	def __init__(self, call, *, at, before=float('inf')):
-		super().__init__(call=call, at=at, before=before)
+	def __init__(self, call, *, before=float('inf'), **kwargs):
+		super().__init__(call=call, before=before, **kwargs)
 
 	def __le__(self, other):
 		return (self.at < other.at)
+
+	def cancel(self):
+		self.cancelled = True
 
 @export
 class CronModule(CoreModule):
@@ -66,7 +70,7 @@ class CronModule(CoreModule):
 			ii = int()
 			for ii, i in enumerate(jobs):
 				if (now > i.at): break
-				if (now < i.before):
+				if (not i.cancelled and now < i.before):
 					try: asyncio.create_task(i.call())
 					except Exception as ex: raise # TODO, issue #16
 			del jobs[:ii]
