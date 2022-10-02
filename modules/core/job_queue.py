@@ -66,7 +66,7 @@ class JobQueueModule(CoreModule):
 	async def proc(self):
 		now = time.time()
 
-		with self.jobs as jobs:
+		async with self.jobs as jobs:
 			ii = int()
 			for ii, i in enumerate(jobs):
 				if (now > i.at): break
@@ -79,7 +79,7 @@ class JobQueueModule(CoreModule):
 		else: await self.job_added.wait()
 
 	async def add_job(self, job: Job):
-		with self.jobs as jobs:
+		async with self.jobs as jobs:
 			bisect.insort(jobs, job)
 
 		self.job_added.set()

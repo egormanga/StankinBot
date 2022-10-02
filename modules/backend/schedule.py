@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-import io, re, bs4, math, tabula, urllib, aiohttp, datetime, traceback, collections
+import io, re, bs4, math, tabula, urllib, aiohttp, asyncio, datetime, itertools, traceback, collections
 from . import BackendModule
+from ..core.database import databased
 from ..utils import *
 
 class Schedule(XABC):
@@ -49,7 +50,7 @@ class Schedule(XABC):
 				'lecturer': self.lecturer,
 				'location': self.location.to_json(),
 				'group': self.group.to_json(),
-				'time': {
+				'time': { # TODO: перерывы
 					'start': self.time[0].strftime('%H:%M'),
 					'end': self.time[1].strftime('%H:%M'),
 				},
@@ -156,15 +157,13 @@ class ScheduleModule(BackendModule):
 	events = []
 	schedule_course_id = 11557
 
-	# public:
-	schedules: -- dict[str -- group, Schedule]
-
-	def __init__(self, bot, **kwargs):
-		super().__init__(bot, **kwargs)
-		self.schedules = dict()
+	# persistent:
+	@databased
+	class schedules(dict): schedules: dict[str -- group, Schedule]
 
 	async def init(self):
-		self.schedules = await self.load_schedules()
+		async with self.schedules as schedules:
+			if (not schedules): del self.schedules
 
 	async def get_schedule_folder_ids(self) -> [course_id[int]]:
 		page = await self.bot.modules.backend.edu_api.get_course(self.schedule_course_id)
@@ -180,21 +179,39 @@ class ScheduleModule(BackendModule):
 			urls |= {k: i['href'] for i in page.find_all('a') if (k := i.text.strip().rpartition('.pdf')[0].upper())}
 		return urls
 
+	@staticmethod
+	def _read_pdf(f):
+		return tabula.read_pdf(f, output_format='json', pages='all', multiple_tables=False, lattice=True)
+
+	async def get_schedule(self, group, url) -> Schedule:
+		url = url.removeprefix(self.bot.modules.backend.edu_api.base_url)
+
+		async with self.bot.modules.backend.edu_api.session.get(url) as r:
+			content = await r.read()
+
+		loop = asyncio.get_event_loop()
+		with io.BytesIO(content) as f:
+			data = await loop.run_in_executor(None, self._read_pdf, f)
+
+		table = only(i['data'] for i in data)
+
+		return Schedule.from_table(group, table)
+
+	@schedules.cached_getter(days=1)
 	async def load_schedules(self) -> dict[str -- group, Schedule]:
-		urls = await self.get_schedule_urls()
-		schedules = dict()
-		for group, url in urls.items():
-			url = url.replace(self.bot.modules.backend.edu_api.base_url, '')
-			async with self.bot.modules.backend.edu_api.session.get(url) as r:
-				content = await r.read()
+		self.log("Loading schedules…")
+		with timecounter() as tc:
+			urls = await self.get_schedule_urls()
+			self.log(f"Got schedule urls in {round(tc.time, 1)} sec.")
+			schedules = await asyncio.gather(*itertools.starmap(self.get_schedule, urls.items()), return_exceptions=True)
+		self.log(f"Schedules loaded in {round(tc.time, 1)} sec.")
 
-			with io.BytesIO(content) as f:
-				try: data = only(i['data'] for i in tabula.read_pdf(f, output_format='json', pages='all', multiple_tables=False, lattice=True))
-				except Exception as ex: print(f"Failed to read schedule pdf for group {group}: {format_exc(ex)}"); traceback.print_exc(); continue
+		res = dict()
+		for i in schedules:
+			if (isinstance(i, Exception)): print(f"Failed to parse schedule: {format_exc(i)}"); traceback.print_exception(i); continue
+			res[i.group] = i
 
-			try: schedules[group] = Schedule.from_table(group, data)
-			except Exception as ex: print(f"Failed to parse schedule for group {group}: {format_exc(ex)}"); traceback.print_exc(); continue
-		return schedules
+		return res
 
 # by Sdore, 2022
 # stbot.sdore.me

@@ -46,13 +46,15 @@ class APIModule(CoreModule):
 		group = request.query.get('group')
 		if (not group): raise web.HTTPBadRequest(reason="`group' parameter is required.")
 
-		try: schedule = self.bot.modules.backend.schedule.schedules[group.upper()]
-		except KeyError: raise web.HTTPNotFound(reason="No schedule for this group.")
+		async with self.bot.modules.backend.schedule.schedules as schedules:
+			try: schedule = schedules[group.upper()]
+			except KeyError: raise web.HTTPNotFound(reason="No schedule for this group.")
 
 		return web.json_response(schedule.to_json())
 
 	async def handle_schedule_groups(self, request):
-		return web.json_response(tuple(self.bot.modules.backend.schedule.schedules))
+		async with self.bot.modules.backend.schedule.schedules as schedules:
+			return web.json_response(tuple(schedules))
 
 # by Sdore, 2022
 # stbot.sdore.me

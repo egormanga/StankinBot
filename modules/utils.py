@@ -1,6 +1,6 @@
 # StankinBot utility module
 
-import time, locale, inspect, functools, importlib, traceback, collections
+import time, locale, asyncio, inspect, functools, importlib, traceback, collections
 from abc import ABCMeta, abstractmethod, abstractproperty
 from types import ModuleType, FunctionType
 
@@ -66,6 +66,14 @@ def recursive_reload(module):
 	for i in vars(module).values():
 		if (isinstance(i, ModuleType)):
 			recursive_reload(i)
+
+@export
+def ensure_async(f):
+	@functools.wraps(f)
+	async def decorated(*args, **kwargs):
+		r = f(*args, **kwargs)
+		return (await r if (asyncio.iscoroutinefunction(f)) else r)
+	return decorated
 
 @export
 class timecounter:
