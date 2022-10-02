@@ -1,7 +1,7 @@
-# StankinBot Cron core module
+# StankinBot JobQueue core module
 
-""" Модуль запланированных задач
-См. https://github.com/egormanga/StankinBot/issues/14
+""" Модуль отложенных задач
+См. https://github.com/egormanga/StankinBot/issues/15
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ class Job(XABC):
 		self.cancelled = True
 
 @export
-class CronModule(CoreModule):
+class JobQueueModule(CoreModule):
 	events = []
 
 	# persistent:
