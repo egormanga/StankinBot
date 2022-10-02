@@ -156,7 +156,8 @@ class DatabaseModule(CoreModule):
 		self._loaded = bool()
 
 	async def init(self):
-		self.load()
+		try: self.load()
+		finally: self.metadata['version'] = self.version  # bump
 
 	async def unload(self):
 		self.save()
@@ -173,12 +174,10 @@ class DatabaseModule(CoreModule):
 			assert (not db)
 
 			self._loaded = True
-		else:
-			self.metadata['version'] = self.version
 
 	def save(self):
 		if (os.path.exists(self.path) and not self._loaded):
-			os.rename(self.path, backup := f"{self.path}.{time.strftime('%Y.%m.%d-%H:%M:%S')}.bak")
+			os.rename(self.path, backup := os.path.join(os.path.dirname(self.path), '.backup/', f"{os.path.basename(self.path)}-{time.strftime('%Y.%m.%d-%H:%M:%S')}.bak"))
 			self.log(f"Warning: creating a new database while another is present. A backup with name {os.path.basename(backup)} has been created.")
 
 		db = {i: getattr(self, i) for i in self.db_fields}
