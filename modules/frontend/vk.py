@@ -67,9 +67,9 @@ class VKFront(PlatformFrontendModule):
 			m = data.object.message
 			user = VKUser(m.from_id)
 			message = Message(m.id, text=m.text)
-			asyncio.create_task(self.mark_as_read(user, message))
+			create_wrapped_task(self.mark_as_read(user, message))
 			for h in self.handlers['message']:
-				asyncio.create_task(h(user, message))
+				create_wrapped_task(h(user, message))
 		else: print(data) # XXX
 
 		return web.Response(text='OK')

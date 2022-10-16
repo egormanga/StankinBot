@@ -1,8 +1,8 @@
 # StankinBot utility module
 
-import time, locale, asyncio, inspect, functools, importlib, traceback, collections
+import time, locale, asyncio, inspect, operator, functools, importlib, traceback, collections
 from abc import ABCMeta, abstractmethod, abstractproperty
-from types import ModuleType, FunctionType
+from types import ModuleType, FunctionType, CoroutineType
 
 # These are just for documenting/readability purposes via '@', instead of comments:
 def decorator(x): return x
@@ -87,6 +87,12 @@ def ensure_async(f):
 		r = f(*args, **kwargs)
 		return (await r if (asyncio.iscoroutinefunction(f)) else r)
 	return decorated
+
+@export
+def create_wrapped_task(coro: CoroutineType):
+	task = asyncio.create_task(coro)
+	task.add_done_callback(operator.methodcaller('result'))
+	return task
 
 @export
 @contextmanager
