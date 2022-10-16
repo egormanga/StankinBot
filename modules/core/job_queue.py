@@ -83,7 +83,7 @@ class JobQueueModule(CoreModule):
 			for ii, i in enumerate(jobs):
 				if (now < i.at): break
 				if (not i.cancelled and (i.before is None or now < i.before)):
-					try: create_wrapped_task(eval(f"(({i.call}) for _ in (None,) if _ is None or await _).__anext__()"))
+					try: create_wrapped_task(eval(compile(f"(({i.call}) for _ in (None,) if _ is None or await _).__anext__()", '<job>', 'eval'), (globals() | {'bot': self.bot, 'now': now})))
 					except Exception as ex: raise # TODO, issue #16
 			else: ii += 1
 			del jobs[:ii]
