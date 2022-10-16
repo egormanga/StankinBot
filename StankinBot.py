@@ -29,6 +29,8 @@ class Bot(XABC):
 				self.register_module(moduleclass)
 
 	async def __aenter__(self):
+		self.log("\033[1mStarting...\033[22m\n", silent=True)
+
 		with timecounter() as tc:
 			print("\r\033[K\033[2mInitializing…\033[22m", end='', file=sys.stderr, flush=True)
 			await self.init_modules()
@@ -37,19 +39,25 @@ class Bot(XABC):
 			await self.start_modules()
 			start_time = tc.time
 		self.log(f"\033[1mStarted\033[22m in ({round(init_time, 1)} init + {round((start_time - init_time), 1)} start = {round(start_time, 1)}) sec.")
+
+		await self.modules.core.cron.handle_event('started')
 		return self
 
 	async def __aexit__(self, exc_type, exc, tb):
 		if (exc is not None and exc.args): self.log(f"\033[3m{exc.args[0]}\033[0m\n")
+
+		self.log("\033[1mExiting...\033[22m\n", silent=True)
+		await self.modules.core.cron.handle_event('stopping')
+
 		print("\r\033[K\033[2mStopping…\033[22m", end='', file=sys.stderr, flush=True)
 		await self.stop_modules()
 		print("\r\033[K\033[2mShutting down…\033[22m", end='', file=sys.stderr, flush=True)
 		await self.unload_modules()
 		self.log("\033[1mExit.\033[0m")
 
-	def log(self, *args, sep=' '):
+	def log(self, *args, sep=' ', silent=False):
 		s = f"\033[1;96m[{time.strftime('%x %X')}]\033[22;39m {sep.join(map(str, args))}\033[0m"
-		print('\r\033[K', s, sep='', file=sys.stderr, flush=True)
+		if (not silent): print('\r\033[K', s, sep='', file=sys.stderr, flush=True)
 		print(s, file=self._logfile, flush=True)
 
 	def register_module(self, moduleclass):
@@ -61,30 +69,38 @@ class Bot(XABC):
 	async def init_modules(self):
 		for i in self.modules.values():
 			for m in i.values():
+				self.log(f"Initializing module \033[1m{m}\033[22m", silent=True)
 				print(f"\r\033[K\033[2mInitializing…  [\033[3m{m}\033[23m]\033[22m", end='', file=sys.stderr, flush=True)
 				try: await m.init()
 				except Exception as ex: self.log(f"\033[1mFailed to init module {m}:\033[22m", format_exc(ex)); traceback.print_exc(); print()
+				else: self.log(f"Initialized module \033[1m{m}\033[22m\n", silent=True)
 
 	async def start_modules(self):
 		for i in self.modules.values():
 			for m in i.values():
+				self.log(f"Starting module \033[1m{m}\033[22m", silent=True)
 				print(f"\r\033[K\033[2mStarting…  [\033[3m{m}\033[23m]\033[22m", end='', file=sys.stderr, flush=True)
 				try: await m.start()
 				except Exception as ex: self.log(f"\033[1mFailed to start module {m}:\033[22m", format_exc(ex)); traceback.print_exc(); print()
+				else: self.log(f"Started module \033[1m{m}\033[22m\n", silent=True)
 
 	async def stop_modules(self):
 		for i in reversed(tuple(self.modules.values())):
 			for m in reversed(tuple(i.values())):
+				self.log(f"Stopping module \033[1m{m}\033[22m", silent=True)
 				print(f"\r\033[K\033[2mStopping…  [\033[3m{m}\033[23m]\033[22m", end='', file=sys.stderr, flush=True)
 				try: await m.stop()
 				except Exception as ex: self.log(f"\033[1mFailed to stop module {m}:\033[22m", format_exc(ex)); traceback.print_exc(); print()
+				else: self.log(f"Stopped module \033[1m{m}\033[22m\n", silent=True)
 
 	async def unload_modules(self):
 		for i in reversed(tuple(self.modules.values())):
 			for m in reversed(tuple(i.values())):
+				self.log(f"Unloading module \033[1m{m}\033[22m", silent=True)
 				print(f"\r\033[K\033[2mUnloading…  [\033[3m{m}\033[23m]\033[22m", end='', file=sys.stderr, flush=True)
 				try: await m.unload()
 				except Exception as ex: self.log(f"\033[1mFailed to unload module {m}:\033[22m", format_exc(ex)); traceback.print_exc(); print()
+				else: self.log(f"Unloaded module \033[1m{m}\033[22m\n", silent=True)
 
 # by Sdore, 2021-22
 #  stbot.sdore.me
