@@ -7,12 +7,14 @@ from aiohttp import web
 from . import *
 from ..utils import *
 
-class VKUser(User):
-	def __init__(self, *args, **kwargs):
-		super().__init__(front=VKFront.name, *args, **kwargs)
-
 @export
 class VKFront(PlatformFrontendModule):
+	class User(User):
+		def __init__(self, *args, **kwargs):
+			super().__init__(VKFront.name, *args, **kwargs)
+
+	Message = Message
+
 	# attributes:
 	name = 'vk'
 	events = []
@@ -65,7 +67,7 @@ class VKFront(PlatformFrontendModule):
 
 		if (data.type == 'message_new'):
 			m = data.object.message
-			user = VKUser(m.from_id)
+			user = self.User(m.from_id)
 			message = Message(m.id, text=m.text)
 			create_wrapped_task(self.mark_as_read(user, message))
 			for h in self.handlers['message']:

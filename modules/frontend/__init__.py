@@ -23,11 +23,11 @@ class Message(XABC):
 	class Keyboard(XABC):
 		pass # TODO
 
-	id: int
+	id: int | None
 	text: str
 	keyboard: Keyboard | None
 
-	def __init__(self, id: int, text: str, keyboard=None, **kwargs):
+	def __init__(self, id: int=None, *, text: str, keyboard=None, **kwargs):
 		super().__init__(id=id, text=text, keyboard=keyboard, **kwargs)
 
 @export
