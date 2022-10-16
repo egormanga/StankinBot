@@ -62,7 +62,7 @@ class APIModule(CoreModule):
 
 	async def handle_schedule_groups(self, request):
 		async with self.bot.modules.backend.schedule.schedules as schedules:
-			return web.json_response(tuple(schedules), functools.partial(json.dumps, ensure_ascii=False))
+			return web.json_response(tuple(schedules), dumps=functools.partial(json.dumps, ensure_ascii=False))
 
 # by Sdore, 2022
 # stbot.sdore.me
