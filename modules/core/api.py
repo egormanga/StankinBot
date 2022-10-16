@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-import asyncio
+import json, asyncio, functools
 from aiohttp import web
 from . import CoreModule
 from ..utils import *
@@ -58,11 +58,11 @@ class APIModule(CoreModule):
 			try: schedule = schedules[group.upper()]
 			except KeyError: raise web.HTTPNotFound(reason="No schedule for this group.")
 
-		return web.json_response(schedule.to_json())
+		return web.json_response(schedule.to_json(), dumps=functools.partial(json.dumps, ensure_ascii=False))
 
 	async def handle_schedule_groups(self, request):
 		async with self.bot.modules.backend.schedule.schedules as schedules:
-			return web.json_response(tuple(schedules))
+			return web.json_response(tuple(schedules), functools.partial(json.dumps, ensure_ascii=False))
 
 # by Sdore, 2022
 # stbot.sdore.me

@@ -17,14 +17,13 @@ class Module(XABC):
 	bot: Bot
 
 	# internal:
-	_inited: bool
-	_started: bool
+	_inited: -- bool
+	_started: -- bool
 
 	def __init__(self, bot, **kwargs):
 		""" Прочитать конфигурацию и инициализировать поля. Не создавать зависимостей от состояния. """
 
-		super().__init__(**kwargs)
-		self.bot = bot
+		super().__init__(bot=bot, **kwargs)
 		self._started = self._inited = bool()
 
 	def __del__(self):

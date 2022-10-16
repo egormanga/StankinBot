@@ -59,6 +59,15 @@ def get_property_annotations(p):
 	elif (isinstance(p, functools.cached_property)): p = p.func
 	return p.__annotations__
 
+def allannotations(x):
+        """ Get annotations dict for all the MRO of object or type `x' in right («super-to-sub») order. """
+        return {k: v for i in (x if (isinstance(x, type)) else x.__class__).mro()[::-1] for k, v in getattr(i, '__annotations__', {}).items()}
+
+def allslots(x):
+	""" Get slots tuple for all the MRO of object or type `x' in right («super-to-sub») order. """
+
+	return tuple(j for i in (x if (isinstance(x, type)) else x.__class__).mro()[::-1] if hasattr(i, '__slots__') for j in i.__slots__)
+
 @export
 def recursive_reload(module):
 	""" Рекурсивно перезагрузить модуль `module'. """
@@ -123,12 +132,13 @@ class XABCMeta(ABCMeta):
 @export
 class XABC(metaclass=XABCMeta): # TODO: verify property types
 	def __init__(self, **kwargs):
-		for i in self.__slots__:
-			a = str(self.__annotations__.get(i))
+		annotations = allannotations(self)
+		for i in allslots(self):
+			a = str(annotations[i])
 			if (not a.startswith('...') and not a.startswith('--')):
 				setattr(self, i, kwargs.pop(i))
 
-		if (kwargs): raise TypeError(f"{self.__class__.__name__}.__init__() got extra argument{'s'*(len(kwargs) > 1)}: {', '.join(kwargs)}")
+		if (kwargs): raise TypeError(f"{self.__class__.__name__}.__init__() got {'an extra argument' if (len(kwargs) == 1) else 'extra arguments'}: {', '.join(kwargs)}")
 
 @export
 class DictAttrProxy(collections.UserDict):
