@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-import os, dill, time, shutil, asyncio, datetime, collections
+import os, time, pickle, shutil, asyncio, datetime, collections
 #from contextlib import asynccontextmanager
 from . import CoreModule
 from ..utils import *
@@ -174,7 +174,7 @@ class DatabaseModule(CoreModule):
 	def load(self):
 		if (os.path.exists(self.path)):
 			with open(self.path, 'rb') as f:
-				db = dill.load(f)
+				db = pickle.load(f)
 
 			assert (db['metadata']['version'] == self.version)
 
@@ -185,6 +185,7 @@ class DatabaseModule(CoreModule):
 			self._loaded = True
 
 	def save(self):
+		backup = None
 		if (os.path.exists(self.path) and not self._loaded):
 			os.makedirs(backupdir := os.path.join(os.path.dirname(self.path), '.backup/'), exist_ok=True)
 			os.rename(self.path, backup := os.path.join(backupdir, f"{os.path.basename(self.path)}-corrupted-{time.strftime('%Y.%m.%d-%H:%M:%S')}.bak"))
@@ -192,8 +193,12 @@ class DatabaseModule(CoreModule):
 
 		db = {i: getattr(self, i) for i in self.db_fields}
 
-		with open(self.path, 'wb') as f:
-			dill.dump(db, f)
+		try:
+			with open(self.path, 'wb') as f:
+				pickle.dump(db, f)
+		except Exception:
+			if (backup is not None): shutil.copy(backup, self.path)
+			raise
 
 	async def get(self, type, var, **kwargs):
 		return self.get_sync(type, var, **kwargs)
