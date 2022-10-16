@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-import os, dill, time, asyncio, datetime, collections
+import os, dill, time, shutil, asyncio, datetime, collections
 #from contextlib import asynccontextmanager
 from . import CoreModule
 from ..utils import *
@@ -40,6 +40,13 @@ class DatabasedField(XABC):
 		async def get(self):
 			try: value = await self.db.get(self.type, self.var, lifetime=self.lifetime)
 			except KeyError: await self.set(value := await ensure_async(self.default_factory)(self.obj))
+			else:
+				if (not isinstance(value, self.field.__base__)):
+					os.makedirs(backupdir := os.path.join(os.path.dirname(self.db.path), '.backup/'), exist_ok=True)
+					shutil.copy(self.db.path, backup := os.path.join(backupdir, f"{os.path.basename(self.db.path)}-cast-{self.type}:{self.var}-{value.__class__.__name__}-to-{self.field.__base__.__name__}-{time.strftime('%Y.%m.%d-%H:%M:%S')}.bak"))
+					self.db.log(f"Warning: type of field {self.type}:{self.var} has changed from {value.__class__.__name__} to {self.field.__base__.__name__}. Trying to cast it or fall back to clearing. A backup with name {os.path.basename(backup)} has been created.")
+					try: await self.set(value := self.field.__base__(value))
+					except Exception: await self.set(value := await ensure_async(self.default_factory)(self.obj))
 			return value
 
 		async def set(self, value):
@@ -179,7 +186,8 @@ class DatabaseModule(CoreModule):
 
 	def save(self):
 		if (os.path.exists(self.path) and not self._loaded):
-			os.rename(self.path, backup := os.path.join(os.path.dirname(self.path), '.backup/', f"{os.path.basename(self.path)}-{time.strftime('%Y.%m.%d-%H:%M:%S')}.bak"))
+			os.makedirs(backupdir := os.path.join(os.path.dirname(self.path), '.backup/'), exist_ok=True)
+			os.rename(self.path, backup := os.path.join(backupdir, f"{os.path.basename(self.path)}-corrupted-{time.strftime('%Y.%m.%d-%H:%M:%S')}.bak"))
 			self.log(f"Warning: creating a new database while another is present. A backup with name {os.path.basename(backup)} has been created.")
 
 		db = {i: getattr(self, i) for i in self.db_fields}
@@ -198,7 +206,7 @@ class DatabaseModule(CoreModule):
 			try: changed = data[var]['changed']
 			except KeyError: pass  # never changed
 			else:
-				now = datetime.datetime.now(tz=datetime.timezone.utc)
+				now = datetime.datetime.now().astimezone()
 				if (now >= changed + lifetime): raise KeyError(var, f"is outdated by {now - (changed + lifetime)}")
 
 		return data[var]['value']
@@ -207,7 +215,7 @@ class DatabaseModule(CoreModule):
 		self.set_sync(type, var, value, **kwargs)
 
 	def set_sync(self, type, var, value, *, changed=None):
-		if (changed is None): changed = datetime.datetime.now(tz=datetime.timezone.utc)
+		if (changed is None): changed = datetime.datetime.now().astimezone()
 		assert (type in self.db_fields)
 
 		data = getattr(self, type)
@@ -222,7 +230,7 @@ class DatabaseModule(CoreModule):
 		self.delete(type, var, **kwargs)
 
 	def delete_sync(self, type, var, *, changed=None):
-		if (changed is None): changed = datetime.datetime.now(tz=datetime.timezone.utc)
+		if (changed is None): changed = datetime.datetime.now().astimezone()
 		assert (type in self.db_fields)
 
 		data = getattr(self, type)
