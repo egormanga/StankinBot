@@ -38,15 +38,17 @@ class PeriodicTask(Task):
 		return f"<Task «{self.call}» since {self.since}{f' until {self.until}' if (self.until is not None) else ''} with interval {self.interval}{f' ({self.count} runs left)' if (self.count is not None) else ''}>"
 
 class ConditionalTask(Task):
-	events: list[str]
-	after: datetime.datetime
-	before: datetime.datetime
+	events: tuple[str]
+	after: datetime.datetime | None
+	before: datetime.datetime | None
 
-	def __init__(self, call, events, **kwargs):
-		super().__init__(call=call, events=events, **kwargs)
+	def __init__(self, call, events, after=None, before=None, **kwargs):
+		events = tuple(events)
+		if (after is None): after = datetime.datetime.now().astimezone()
+		super().__init__(call=call, events=events, after=after, before=before, **kwargs)
 
 	def __repr__(self):
-		return f"<Task {self.call} at events {', '.join(self.events)} after {self.after} before {self.before}{f' ({self.count} runs left)' if (self.count is not None) else ''}>"
+		return f"<Task {self.call} at events {self.events} after {self.after}{f' before {self.before}' if (self.before is not None) else ''}{f' ({self.count} runs left)' if (self.count is not None) else ''}>"
 
 @export
 class CronModule(CoreModule):
@@ -54,24 +56,32 @@ class CronModule(CoreModule):
 
 	# persistent:
 	@databased('state')
-	class tasks(list): tasks: [Task]
+	class tasks(list): tasks: list[Task]
 	@databased('state')
 	class event_queue(asyncio.Queue): event_queue: asyncio.Queue[Task]
 
 	# public:
 	periodic: list[dict]
+	conditional: list[dict]
 
 	# internal:
+	_static: -- list[Task]
 	_is_running: -- bool
 	_task: -- asyncio.Task
 
 	def __init__(self, bot, **kwargs):
 		super().__init__(bot, **kwargs)
+		self._static = list()
 		self._is_running = bool()
 
 	async def init(self):
 		for i in self.periodic:
-			await self.create_task(PeriodicTask(**{k: (eval(str(v)) if (k != 'call') else str(v)) for k, v in i.items()}))
+			task = await self.create_task(PeriodicTask(**{k: (eval(str(v)) if (k != 'call') else str(v)) for k, v in i.items()}))
+			self._static.append(task)
+
+		for i in self.conditional:
+			task = await self.create_task(ConditionalTask(**{k: (eval(str(v)) if (k != 'call') else str(v)) for k, v in i.items()}))
+			self._static.append(task)
 
 	async def start(self):
 		self._is_running = True
@@ -85,9 +95,16 @@ class CronModule(CoreModule):
 
 	async def stop(self):
 		self._is_running = False
-		try: self._task.cancel()
+
+		_task = self._task
+		try: _task.cancel()
 		except AttributeError: pass
-		else: await self._task
+		else: await _task
+
+		async with self.tasks as tasks:
+			for i in self._static:
+				try: tasks.remove(i)
+				except ValueError: pass
 
 	async def proc(self):
 		now = datetime.datetime.now().astimezone()
@@ -123,7 +140,8 @@ class CronModule(CoreModule):
 		async with self.tasks as tasks:
 			if (task not in tasks):
 				tasks.append(task)
-			print(tasks)
+			print(tasks) # XXX
+		return task
 
 	async def remove_task(self, task: Task):
 		async with self.tasks as tasks:
