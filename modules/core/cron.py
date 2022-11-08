@@ -42,6 +42,7 @@ class ConditionalTask(Task):
 	events: tuple[str]
 	after: datetime.datetime | None
 	before: datetime.datetime | None
+	timeout: datetime.timedelta | None
 
 	def __init__(self, call, events, after=None, before=None, **kwargs):
 		events = tuple(events)
@@ -51,6 +52,7 @@ class ConditionalTask(Task):
 	def __repr__(self):
 		return (f"<Task {self.call} at events {self.events} after {self.after}"
 		        f"{f' before {self.before}' if (self.before is not None) else ''}"
+		        f"{f' with timeout {self.timeout}' if (self.timeout is not None) else ''}"
 		        f"{f' ({self.count} runs left)' if (self.count is not None) else ''}>")
 
 @export
@@ -138,8 +140,11 @@ class CronModule(CoreModule):
 						if (isinstance(i, ConditionalTask)):
 							if (event in i.events and (i.after is None or now >= i.after) and
 							                          (i.before is None or now < i.before)):
-								await self.bot.modules.core.job_queue.add_job(
-									Job(i.call, before=i.before))
+								if (i.timeout is not None and now > (i.after + i.timeout)):
+									i.count = 0
+								else:
+									await self.bot.modules.core.job_queue.add_job(
+										Job(i.call, before=i.before))
 								if (i.count is not None): i.count -= 1
 							if ((i.count is not None and i.count <= 0) or
 							    (i.before is not None and now >= i.before)): tasks.remove(i)
