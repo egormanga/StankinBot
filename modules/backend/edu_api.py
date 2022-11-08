@@ -39,7 +39,8 @@ class StankinEduModule(BackendModule):
 		async with self.session.get("/login/index.php") as r:
 			page = bs4.BeautifulSoup(await r.text(), 'html.parser')
 		logintoken = page.find('input', {'name': 'logintoken'})['value']
-		await self.session.post("/login/index.php", data={'username': self.username, 'password': self.password, 'logintoken': logintoken})
+		await self.session.post("/login/index.php", data={'username': self.username, 'password': self.password,
+		                                                  'logintoken': logintoken})
 		return self.session.cookie_jar._cookies
 
 	async def logout(self):

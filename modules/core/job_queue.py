@@ -22,7 +22,8 @@ class Job(XABC):
 		super().__init__(call=call, at=at, before=before, cancelled=cancelled, **kwargs)
 
 	def __repr__(self):
-		return f"<Job «{self.call}» at {self.at}{f' before {self.before}' if (self.before is not None) else ''}{' (cancelled)' if (self.cancelled) else ''}>"
+		return (f"<Job «{self.call}» at {self.at}{f' before {self.before}' if (self.before is not None) else ''}"
+		        f"{' (cancelled)' if (self.cancelled) else ''}>")
 
 	def __lt__(self, other):
 		return (self.at < other.at)
@@ -83,7 +84,9 @@ class JobQueueModule(CoreModule):
 			for ii, i in enumerate(jobs):
 				if (now < i.at): break
 				if (not i.cancelled and (i.before is None or now < i.before)):
-					try: create_wrapped_task(eval(compile(f"(({i.call}) for _ in (None,) if _ is None or await _).__anext__()", '<job>', 'eval'), (globals() | {'bot': self.bot, 'now': now})))
+					try: create_wrapped_task(eval(compile(
+						f"(({i.call}) for _ in (None,) if _ is None or await _).__anext__()",
+						'<job>', 'eval'), (globals() | {'bot': self.bot, 'now': now})))
 					except Exception as ex: raise # TODO, issue #16
 			else: ii += 1
 			del jobs[:ii]

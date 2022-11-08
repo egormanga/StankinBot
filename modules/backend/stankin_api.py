@@ -54,13 +54,16 @@ class StankinAPIModule(BackendModule):
 	api_url = "https://stankin.ru/api_entry.php"
 
 	async def _call(self, action, **data):
-		async with aiohttp.request('POST', self.api_url, headers={'Content-Type': 'application/json'}, json={'action': action, 'data': data}) as r:
+		async with aiohttp.request('POST', self.api_url, headers={'Content-Type': 'application/json'},
+		                           json={'action': action, 'data': data}) as r:
 			r = await r.json()
 		if (not r['success']): raise StankinAPIError(r['error'])
 		return r['data']
 
-	async def getNews(self, *, is_main=False, pull_site=False, subdivision_id=0, count=2**63-1, page=1, tag='', query_search=''):
-		return Articles(**await self._call('getNews', is_main=is_main, pull_site=pull_site, subdivision_id=subdivision_id, count=count, page=page, tag=tag, query_search=query_search))
+	async def getNews(self, *, is_main=False, pull_site=False, subdivision_id=0,
+	                  count=2**63-1, page=1, tag='', query_search=''):
+		return Articles(**await self._call('getNews', is_main=is_main, pull_site=pull_site, subdivision_id=subdivision_id,
+		                count=count, page=page, tag=tag, query_search=query_search))
 
 	async def getNewsItem(self, id):
 		return Article(**await self._call('getNewsItem', id=id))
@@ -73,7 +76,9 @@ class StankinAPIModule(BackendModule):
 
 	async def parseNewsArticle(art) -> plaintext[str]:
 		with lc('ru_RU.UTF-8'):
-			output = re.sub(r'\ (00:00|23:59):\d{2}', '', time.strftime("%c", time.strptime(re.sub(r'\.\d+', '', art.get('date') + "00"), '%Y-%m-%d %H:%M:%S%z'))) + '\n'
+			output = (re.sub(r'\ (00:00|23:59):\d{2}', '',
+			                 time.strftime("%c", time.strptime(re.sub(r'\.\d+', '', art.get('date') + "00"),
+			                                                   '%Y-%m-%d %H:%M:%S%z'))) + '\n')
 		output += art.get('title') + '\n\n' + "https://stankin.ru/news/item_" + str(art.get('id'))
 		if (short_text := art.get('short_text')):
 			output += '\n\n' + short_text

@@ -35,7 +35,8 @@ class PeriodicTask(Task):
 		super().__init__(call=call, since=since, interval=interval, until=until, count=count, lastrun=lastrun, **kwargs)
 
 	def __repr__(self):
-		return f"<Task «{self.call}» since {self.since}{f' until {self.until}' if (self.until is not None) else ''} with interval {self.interval}{f' ({self.count} runs left)' if (self.count is not None) else ''}>"
+		return (f"<Task «{self.call}» since {self.since}{f' until {self.until}' if (self.until is not None) else ''}"
+		        f" with interval {self.interval}{f' ({self.count} runs left)' if (self.count is not None) else ''}>")
 
 class ConditionalTask(Task):
 	events: tuple[str]
@@ -48,7 +49,9 @@ class ConditionalTask(Task):
 		super().__init__(call=call, events=events, after=after, before=before, **kwargs)
 
 	def __repr__(self):
-		return f"<Task {self.call} at events {self.events} after {self.after}{f' before {self.before}' if (self.before is not None) else ''}{f' ({self.count} runs left)' if (self.count is not None) else ''}>"
+		return (f"<Task {self.call} at events {self.events} after {self.after}"
+		        f"{f' before {self.before}' if (self.before is not None) else ''}"
+		        f"{f' ({self.count} runs left)' if (self.count is not None) else ''}>")
 
 @export
 class CronModule(CoreModule):
@@ -76,11 +79,13 @@ class CronModule(CoreModule):
 
 	async def init(self):
 		for i in self.periodic:
-			task = await self.create_task(PeriodicTask(**{k: (eval(str(v)) if (k != 'call') else str(v)) for k, v in i.items()}))
+			task = await self.create_task(PeriodicTask(**{k: (eval(str(v)) if (k != 'call') else str(v))
+			                                              for k, v in i.items()}))
 			self._static.append(task)
 
 		for i in self.conditional:
-			task = await self.create_task(ConditionalTask(**{k: (eval(str(v)) if (k != 'call') else str(v)) for k, v in i.items()}))
+			task = await self.create_task(ConditionalTask(**{k: (eval(str(v)) if (k != 'call') else str(v))
+			                                                 for k, v in i.items()}))
 			self._static.append(task)
 
 	async def start(self):
@@ -116,7 +121,10 @@ class CronModule(CoreModule):
 						while ((nextrun := (i.lastrun + i.interval)) < now):
 							i.lastrun = nextrun
 						before = (nextrun + i.interval)
-						await self.bot.modules.core.job_queue.add_job(Job(i.call, at=nextrun, before=(min(before, i.until) if (i.until is not None) else before)))
+						await self.bot.modules.core.job_queue.add_job(
+							Job(i.call, at=nextrun, before=(min(before, i.until)
+							                                if (i.until is not None)
+							                                else before)))
 						if (i.count is not None): i.count -= 1
 					if ((i.count is not None and i.count <= 0) or
 					    (i.until is not None and now >= i.until)): tasks.remove(i)
@@ -128,8 +136,10 @@ class CronModule(CoreModule):
 
 					for i in tasks.copy():
 						if (isinstance(i, ConditionalTask)):
-							if (event in i.events and (i.after is None or now >= i.after) and (i.before is None or now < i.before)):
-								await self.bot.modules.core.job_queue.add_job(Job(i.call, before=i.before))
+							if (event in i.events and (i.after is None or now >= i.after) and
+							                          (i.before is None or now < i.before)):
+								await self.bot.modules.core.job_queue.add_job(
+									Job(i.call, before=i.before))
 								if (i.count is not None): i.count -= 1
 							if ((i.count is not None and i.count <= 0) or
 							    (i.before is not None and now >= i.before)): tasks.remove(i)

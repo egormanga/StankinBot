@@ -57,7 +57,8 @@ class Schedule(XABC):
 				'time': {
 					'start': self.time[0].strftime('%H:%M'),
 					'end': self.time[1].strftime('%H:%M'),
-					'breaks': tuple({'start': s.strftime('%H:%M'), 'end': e.strftime('%H:%M')} for s, e in self.breaks),
+					'breaks': tuple({'start': s.strftime('%H:%M'), 'end': e.strftime('%H:%M')}
+					                for s, e in self.breaks),
 				},
 				'dates': tuple(map(datetime.date.isoformat, self.dates)),
 			}
@@ -128,7 +129,8 @@ class Schedule(XABC):
 			location = cls.Location(room=room)
 			group = cls.Group(group=group, subgroup=subgroup)
 
-			return cls(name=name, type=type, lecturer=lecturer, location=location, group=group, time=time, breaks=breaks, dates=dates)
+			return cls(name=name, type=type, lecturer=lecturer, location=location, group=group, time=time,
+			           breaks=breaks, dates=dates)
 
 	group: str
 	pairs: [[[Pair]]]
@@ -147,7 +149,8 @@ class Schedule(XABC):
 			ydiff = max(ydiff, (yoffs[-i] - yoffs[-i-1]))
 
 		times, *table = table
-		times = tuple(tuple(map(lambda x: datetime.time(*map(int, x.split(':'))), i['text'].split('-', maxsplit=1))) for i in times[1:])
+		times = tuple(tuple(map(lambda x: datetime.time(*map(int, x.split(':'))), i['text'].split('-', maxsplit=1)))
+		              for i in times[1:])
 
 		pairs = collections.defaultdict(lambda: [set() for _ in times])
 
@@ -190,7 +193,9 @@ class ScheduleModule(BackendModule):
 	async def get_schedule_folder_ids(self) -> [course_id[int]]:
 		page = await self.bot.modules.backend.edu_api.get_course(self.schedule_course_id)
 		topics = page.find(class_='topics').find_all('li', {'role': 'region'})
-		ids = tuple(urllib.parse.urlparse(j['href']).query.partition('id=')[2] for i in topics if 'Расписание занятий' in i.strings for j in i.find_all() if j.get('href') is not None)
+		ids = tuple(urllib.parse.urlparse(j['href']).query.partition('id=')[2]
+		            for i in topics if 'Расписание занятий' in i.strings
+		            for j in i.find_all() if j.get('href') is not None)
 		return ids
 
 	async def get_schedule_urls(self) -> dict[str -- group, str -- url]:
@@ -225,12 +230,15 @@ class ScheduleModule(BackendModule):
 		with timecounter() as tc:
 			urls = await self.get_schedule_urls()
 			self.log(f"Got schedule urls in {round(tc.time, 1)} sec.")
-			schedules = await asyncio.gather(*itertools.starmap(self.get_schedule, urls.items()), return_exceptions=True)
+			schedules = await asyncio.gather(*itertools.starmap(self.get_schedule, urls.items()),
+			                                 return_exceptions=True)
 		self.log(f"Schedules loaded in {round(tc.time, 1)} sec.")
 
 		res = dict()
 		for i in schedules:
-			if (isinstance(i, Exception)): print(f"Failed to parse schedule: {format_exc(i)}"); traceback.print_exception(i); continue
+			if (isinstance(i, Exception)):
+				print(f"Failed to parse schedule: {format_exc(i)}"); traceback.print_exception(i)
+				continue
 			res[i.group] = i
 
 		return res

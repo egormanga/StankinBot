@@ -65,12 +65,15 @@ def get_property_annotations(p):
 
 def allannotations(x):
         """ Get annotations dict for all the MRO of object or type `x' in right («super-to-sub») order. """
-        return {k: v for i in (x if (isinstance(x, type)) else x.__class__).mro()[::-1] for k, v in getattr(i, '__annotations__', {}).items()}
+        return {k: v for i in (x if (isinstance(x, type)) else x.__class__).mro()[::-1]
+                for k, v in getattr(i, '__annotations__', {}).items()}
 
 def allslots(x):
 	""" Get slots tuple for all the MRO of object or type `x' in right («super-to-sub») order. """
 
-	return tuple(j for i in (x if (isinstance(x, type)) else x.__class__).mro()[::-1] if hasattr(i, '__slots__') for j in i.__slots__)
+	return tuple(j
+	             for i in (x if (isinstance(x, type)) else x.__class__).mro()[::-1] if hasattr(i, '__slots__')
+	             for j in i.__slots__)
 
 @export
 def join_last(l: [str], *, sep=', ', last):
@@ -136,13 +139,21 @@ class XABCMeta(ABCMeta):
 	def __new__(metacls, name, bases, classdict):
 		annotations = classdict.get('__annotations__', {})
 
-		classdict['__slots__'] = tuple(k for k, v in annotations.items() if (p := classdict.get(k)) is not ... and not (isinstance(p, (property, classproperty, functools.cached_property)) and (ra := get_property_annotations(p).get('return')) and ra == v.removeprefix('--').strip()))
+		classdict['__slots__'] = tuple(k for k, v in annotations.items() if (p := classdict.get(k)) is not ...
+		                                                                 and not (isinstance(p, (property, classproperty,
+		                                                                                         functools.cached_property))
+		                                                                 and (ra := get_property_annotations(p)
+		                                                                            .get('return'))
+		                                                                 and ra == v.removeprefix('--').strip()))
 
 		if (conflicts := {i: c for i in classdict['__slots__'] if (c := metacls.conflicts(i, bases)) is not None}):
-			raise ValueError(f"There are conflicts between members of {name} and its bases: {', '.join(f'{i} in {c}' for i, c in conflicts.items())}")
+			raise ValueError(f"There are conflicts between members of {name} and its bases:"
+			                 f" {', '.join(f'{i} in {c}' for i, c in conflicts.items())}")
 
 		classdict.update({i: abstractproperty() for i in annotations if classdict.get(i) is ...})  # `x: ...`
-		classdict.update({k: abstractmethod(v) for v in classdict.items() if isinstance(v, FunctionType) and v.__code__.co_code == b'd\0S\0' and v.__code__.co_consts == (None,)})  # `def f(): ...`
+		classdict.update({k: abstractmethod(v) for v in classdict.items() if isinstance(v, FunctionType)  # `def f(): ...`
+		                                                                  and v.__code__.co_code == b'd\0S\0'
+		                                                                  and v.__code__.co_consts == (None,)})
 
 		return super().__new__(metacls, name, bases, classdict)
 
@@ -161,7 +172,9 @@ class XABC(metaclass=XABCMeta): # TODO: verify property types
 			if (not a.startswith('...') and not a.startswith('--')):
 				setattr(self, i, kwargs.pop(i))
 
-		if (kwargs): raise TypeError(f"{self.__class__.__name__}.__init__() got {'an extra argument' if (len(kwargs) == 1) else 'extra arguments'}: {', '.join(kwargs)}")
+		if (kwargs): raise TypeError(f"{self.__class__.__name__}.__init__() got"
+		                             f" {'an extra argument' if (len(kwargs) == 1) else 'extra arguments'}:"
+		                             f" {', '.join(kwargs)}")
 
 @export
 class DictAttrProxy(collections.UserDict):

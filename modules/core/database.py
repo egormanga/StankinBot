@@ -42,11 +42,23 @@ class DatabasedField(XABC):
 			except KeyError: await self.set(value := await ensure_async(self.default_factory)(self.obj))
 			else:
 				if (not isinstance(value, self.field.__base__)):
-					os.makedirs(backupdir := os.path.join(os.path.dirname(self.db.path), '.backup/'), exist_ok=True)
-					shutil.copy(self.db.path, backup := os.path.join(backupdir, f"{os.path.basename(self.db.path)}-cast-{self.type}:{self.var}-{value.__class__.__name__}-to-{self.field.__base__.__name__}-{time.strftime('%Y.%m.%d-%H:%M:%S')}.bak"))
-					self.db.log(f"Warning: type of field {self.type}:{self.var} has changed from {value.__class__.__name__} to {self.field.__base__.__name__}. Trying to cast it or fall back to clearing. A backup with name {os.path.basename(backup)} has been created.")
-					try: await self.set(value := self.field.__base__(value))
-					except Exception: await self.set(value := await ensure_async(self.default_factory)(self.obj))
+					os.makedirs(backupdir := os.path.join(os.path.dirname(self.db.path), '.backup/'),
+					            exist_ok=True)
+					shutil.copy(self.db.path,
+					            backup := os.path.join(backupdir,
+					                                   f"{os.path.basename(self.db.path)}-cast"
+					                                   f"-{self.type}:{self.var}"
+					                                   f"-{value.__class__.__name__}-to"
+					                                   f"-{self.field.__base__.__name__}"
+					                                   f"-{time.strftime('%Y.%m.%d-%H:%M:%S')}.bak"))
+					self.db.log(f"Warning: type of field {self.type}:{self.var} has changed from"
+					            f"{value.__class__.__name__} to {self.field.__base__.__name__}."
+					            f" Trying to cast it or fall back to clearing. A backup with name"
+					            f" {os.path.basename(backup)} has been created.")
+					try:
+						await self.set(value := self.field.__base__(value))
+					except Exception:
+						await self.set(value := await ensure_async(self.default_factory)(self.obj))
 			return value
 
 		async def set(self, value):
@@ -188,8 +200,10 @@ class DatabaseModule(CoreModule):
 		backup = None
 		if (os.path.exists(self.path) and not self._loaded):
 			os.makedirs(backupdir := os.path.join(os.path.dirname(self.path), '.backup/'), exist_ok=True)
-			os.rename(self.path, backup := os.path.join(backupdir, f"{os.path.basename(self.path)}-corrupted-{time.strftime('%Y.%m.%d-%H:%M:%S')}.bak"))
-			self.log(f"Warning: creating a new database while another is present. A backup with name {os.path.basename(backup)} has been created.")
+			os.rename(self.path, backup := os.path.join(backupdir, f"{os.path.basename(self.path)}-corrupted-"
+			                                                       f"{time.strftime('%Y.%m.%d-%H:%M:%S')}.bak"))
+			self.log(f"Warning: creating a new database while another is present."
+			         f" A backup with name {os.path.basename(backup)} has been created.")
 
 		db = {i: getattr(self, i) for i in self.db_fields}
 
@@ -212,7 +226,7 @@ class DatabaseModule(CoreModule):
 			except KeyError: pass  # never changed
 			else:
 				now = datetime.datetime.now().astimezone()
-				if (now >= changed + lifetime): raise KeyError(var, f"is outdated by {now - (changed + lifetime)}")
+				if (now >= changed + lifetime): raise KeyError(var, f"outdated by {now - (changed + lifetime)}")
 
 		return data[var]['value']
 

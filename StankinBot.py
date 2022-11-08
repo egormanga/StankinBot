@@ -25,7 +25,8 @@ class Bot(XABC):
 			if (v is None): continue
 			for i in v:
 				m = importlib.import_module(f'.modules.{k}.{i}', package=__package__)
-				moduleclass = first(v for k in m.__all__ if isinstance(v := getattr(m, k), type) and issubclass(v, Module))
+				moduleclass = first(v for k in m.__all__
+				                    if isinstance(v := getattr(m, k), type) and issubclass(v, Module))
 				self.register_module(moduleclass)
 
 	async def __aenter__(self):
@@ -38,7 +39,8 @@ class Bot(XABC):
 			print("\r\033[K\033[2mStarting…\033[22m", end='', file=sys.stderr, flush=True)
 			await self.start_modules()
 			start_time = tc.time
-		self.log(f"\033[1mStarted\033[22m in ({round(init_time, 1)} init + {round((start_time - init_time), 1)} start = {round(start_time, 1)}) sec.")
+		self.log(f"\033[1mStarted\033[22m in ({round(init_time, 1)} init + {round((start_time - init_time), 1)} start ="
+		         f" {round(start_time, 1)}) sec.")
 
 		await self.modules.core.cron.handle_event('started')
 		return self
@@ -70,36 +72,48 @@ class Bot(XABC):
 		for i in self.modules.values():
 			for m in i.values():
 				self.log(f"Initializing module \033[1m{m}\033[22m", silent=True)
-				print(f"\r\033[K\033[2mInitializing…  [\033[3m{m}\033[23m]\033[22m", end='', file=sys.stderr, flush=True)
+				print(f"\r\033[K\033[2mInitializing…  [\033[3m{m}\033[23m]\033[22m",
+				      end='', file=sys.stderr, flush=True)
 				try: await m.init()
-				except Exception as ex: self.log(f"\033[1mFailed to init module {m}:\033[22m", format_exc(ex)); traceback.print_exc(); print()
+				except Exception as ex:
+					self.log(f"\033[1mFailed to init module {m}:\033[22m", format_exc(ex))
+					traceback.print_exc(); print()
 				else: self.log(f"Initialized module \033[1m{m}\033[22m\n", silent=True)
 
 	async def start_modules(self):
 		for i in self.modules.values():
 			for m in i.values():
 				self.log(f"Starting module \033[1m{m}\033[22m", silent=True)
-				print(f"\r\033[K\033[2mStarting…  [\033[3m{m}\033[23m]\033[22m", end='', file=sys.stderr, flush=True)
+				print(f"\r\033[K\033[2mStarting…  [\033[3m{m}\033[23m]\033[22m",
+				      end='', file=sys.stderr, flush=True)
 				try: await m.start()
-				except Exception as ex: self.log(f"\033[1mFailed to start module {m}:\033[22m", format_exc(ex)); traceback.print_exc(); print()
+				except Exception as ex:
+					self.log(f"\033[1mFailed to start module {m}:\033[22m", format_exc(ex))
+					traceback.print_exc(); print()
 				else: self.log(f"Started module \033[1m{m}\033[22m\n", silent=True)
 
 	async def stop_modules(self):
 		for i in reversed(tuple(self.modules.values())):
 			for m in reversed(tuple(i.values())):
 				self.log(f"Stopping module \033[1m{m}\033[22m", silent=True)
-				print(f"\r\033[K\033[2mStopping…  [\033[3m{m}\033[23m]\033[22m", end='', file=sys.stderr, flush=True)
+				print(f"\r\033[K\033[2mStopping…  [\033[3m{m}\033[23m]\033[22m",
+				      end='', file=sys.stderr, flush=True)
 				try: await m.stop()
-				except Exception as ex: self.log(f"\033[1mFailed to stop module {m}:\033[22m", format_exc(ex)); traceback.print_exc(); print()
+				except Exception as ex:
+					self.log(f"\033[1mFailed to stop module {m}:\033[22m", format_exc(ex))
+					traceback.print_exc(); print()
 				else: self.log(f"Stopped module \033[1m{m}\033[22m\n", silent=True)
 
 	async def unload_modules(self):
 		for i in reversed(tuple(self.modules.values())):
 			for m in reversed(tuple(i.values())):
 				self.log(f"Unloading module \033[1m{m}\033[22m", silent=True)
-				print(f"\r\033[K\033[2mUnloading…  [\033[3m{m}\033[23m]\033[22m", end='', file=sys.stderr, flush=True)
+				print(f"\r\033[K\033[2mUnloading…  [\033[3m{m}\033[23m]\033[22m",
+				      end='', file=sys.stderr, flush=True)
 				try: await m.unload()
-				except Exception as ex: self.log(f"\033[1mFailed to unload module {m}:\033[22m", format_exc(ex)); traceback.print_exc(); print()
+				except Exception as ex:
+					self.log(f"\033[1mFailed to unload module {m}:\033[22m", format_exc(ex))
+					traceback.print_exc(); print()
 				else: self.log(f"Unloaded module \033[1m{m}\033[22m\n", silent=True)
 
 # by Sdore, 2021-22

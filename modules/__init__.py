@@ -40,7 +40,10 @@ class Module(XABC):
 
 	def __delattr__(self, x):
 		try: super().__delattr__(x)
-		except AttributeError as ex: self.log(f"\033[1;93mWarning:\033[22m", f"trying to delete missing attribute «{ex.args[0]}»", format_exc(ex)); traceback.print_exc(); print()
+		except AttributeError as ex:
+			self.log(f"\033[1;93mWarning:\033[22m",
+			         f"trying to delete missing attribute «{ex.args[0]}»", format_exc(ex))
+			traceback.print_exc(); print()
 
 	async def init(self):
 		""" Загрузить состояние, готовое к использованию. Можно создавать зависимости (открывать файлы, т.д.). Не запускать службы, не создавать нагрузку. """
