@@ -1,6 +1,6 @@
 # StankinBot utility module
 
-import time, locale, asyncio, inspect, operator, functools, importlib, traceback, collections
+import sys, time, locale, asyncio, inspect, operator, functools, importlib, traceback, collections
 from abc import ABCMeta, abstractmethod, abstractproperty
 from types import ModuleType, FunctionType, CoroutineType
 
@@ -44,6 +44,10 @@ def format_exc(ex): return str().join(traceback.format_exception_only(type(ex), 
 
 @export
 @decorator
+def suppress_tb(f): f.__code__ = f.__code__.replace(co_name=f.__qualname__, co_firstlineno=0, **{'co_linetable' if (sys.version_info >= (3, 10)) else 'co_lnotab': b''}); return f
+
+@export
+@decorator
 class classproperty:
 	__slots__ = ('__func__',)
 
@@ -69,6 +73,18 @@ def allslots(x):
 	return tuple(j for i in (x if (isinstance(x, type)) else x.__class__).mro()[::-1] if hasattr(i, '__slots__') for j in i.__slots__)
 
 @export
+def join_last(l: [str], *, sep=', ', last):
+	l = iter(l)
+	try: res = next(l)
+	except StopIteration: return ''
+	n = ...
+	for i in l:
+		if (n is not ...): res += (sep + n)
+		n = i
+	if (n is not ...): res += (last + n)
+	return res
+
+@export
 def recursive_reload(module):
 	""" Рекурсивно перезагрузить модуль `module'. """
 
@@ -82,6 +98,7 @@ def recursive_reload(module):
 @export
 @decorator
 def ensure_async(f):
+	@suppress_tb
 	@functools.wraps(f)
 	async def decorated(*args, **kwargs):
 		r = f(*args, **kwargs)
