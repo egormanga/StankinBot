@@ -239,6 +239,10 @@ class ExamSchedule(Schedule):
 	def pairs(self):
 		return tuple([[i] for i in v] for k, v in sorted(itertools.groupby(itertools.chain(self.exams, self.consultations), key=lambda x: x.date.weekday()), key=operator.itemgetter(0)))
 
+	@pairs.setter
+	def pairs(self, x):
+		pass # TODO FIXME?
+
 	@classmethod
 	def from_table(cls, group, table) -> ExamSchedule:
 		exams = list()
