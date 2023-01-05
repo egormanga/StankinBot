@@ -29,6 +29,7 @@ class APIModule(CoreModule):
 		app.add_routes((
 			web.get('/schedule/', self.handle_schedule),
 			web.get('/schedule/groups/', self.handle_schedule_groups),
+			web.get('/lecturer/', self.handle_lecturer),
 			web.get('/lecturer/find/', self.handle_lecturer_find),
 		))
 
@@ -69,6 +70,14 @@ class APIModule(CoreModule):
 	async def handle_schedule_groups(self, request):
 		async with self.bot.modules.backend.schedule.schedules as schedules:
 			return web.json_response(tuple(schedules), dumps=functools.partial(json.dumps, ensure_ascii=False))
+
+	async def handle_lecturer(self, request):
+		async with self.bot.modules.backend.schedule.schedules as schedules:
+			lecturers = {i.lecturer for schedule in schedules.values() for day in schedule.pairs for pair in day for i in pair}
+
+		lecturers = sorted(filter(None, lecturers))
+
+		return web.json_response(lecturers, dumps=functools.partial(json.dumps, ensure_ascii=False))
 
 	async def handle_lecturer_find(self, request):
 		name, date = self.ensure_get_params(request.query, 'name', 'date')
