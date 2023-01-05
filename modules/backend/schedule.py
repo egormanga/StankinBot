@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import io, re, bs4, math, tabula, urllib, aiohttp, asyncio, datetime, functools, itertools, traceback, collections
+import io, re, bs4, math, tabula, urllib, aiohttp, asyncio, datetime, operator, functools, itertools, traceback, collections
 from . import BackendModule
 from ..core.database import databased
 from ..utils import *
@@ -223,7 +223,7 @@ class ExamSchedule(Schedule):
 			''', s, re.X)
 
 			type = m['type']
-			date = m['date']
+			date = datetime.datetime.strptime(m['date'], '%d.%m.%Y').date()
 			time = (datetime.time(*map(int, m['time'].split(':'))),)*2
 			room = m['room']
 
@@ -237,7 +237,7 @@ class ExamSchedule(Schedule):
 
 	@property
 	def pairs(self):
-		return tuple([[i] for i in v] for k, v in sorted(itertools.groupby(itertools.chain(self.exams, self.consultations), key=lambda x: x.date.weekday())))
+		return tuple([[i] for i in v] for k, v in sorted(itertools.groupby(itertools.chain(self.exams, self.consultations), key=lambda x: x.date.weekday()), key=operator.itemgetter(0)))
 
 	@classmethod
 	def from_table(cls, group, table) -> ExamSchedule:
