@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-import time, asyncio, datetime
+import time, asyncio, datetime, collections
 from . import CoreModule
 from .database import databased
 from .job_queue import Job
@@ -63,23 +63,29 @@ class CronModule(CoreModule):
 	@databased('state')
 	class tasks(list): tasks: list[Task]
 	@databased('state')
-	class event_queue(asyncio.Queue): event_queue: asyncio.Queue[Task]
+	class event_queue(collections.deque): event_queue: collections.deque[Task]
 
 	# public:
 	periodic: list[dict]
 	conditional: list[dict]
 
 	# internal:
+	_event_queue: -- asyncio.Queue[Task]
 	_static: -- list[Task]
 	_is_running: -- bool
 	_task: -- asyncio.Task
 
 	def __init__(self, bot, **kwargs):
 		super().__init__(bot, **kwargs)
+		self._event_queue = asyncio.Queue()
 		self._static = list()
 		self._is_running = bool()
 
 	async def init(self):
+		async with self.event_queue as event_queue:
+			for i in event_queue:
+				self._event_queue.put(i)
+
 		for i in self.periodic:
 			task = await self.create_task(PeriodicTask(**{k: (eval(str(v)) if (k != 'call') else str(v))
 			                                              for k, v in i.items()}))
@@ -101,8 +107,12 @@ class CronModule(CoreModule):
 				if (self._is_running): raise
 
 	async def stop(self):
+		await self._event_queue.join()
 		async with self.event_queue as event_queue:
-			await event_queue.join()
+			event_queue.clear()
+			while (True):
+				try: event_queue.append(self._event_queue.get_nowait())
+				except asyncio.QueueEmpty: break
 
 		self._is_running = False
 
@@ -134,25 +144,24 @@ class CronModule(CoreModule):
 					if ((i.count is not None and i.count <= 0) or
 					    (i.until is not None and now >= i.until)): tasks.remove(i)
 
-			async with self.event_queue as event_queue:
-				while (True):
-					try: event = event_queue.get_nowait()
-					except asyncio.QueueEmpty: break
+			while (True):
+				try: event = self._event_queue.get_nowait()
+				except asyncio.QueueEmpty: break
 
-					try:
-						for i in tasks.copy():
-							if (isinstance(i, ConditionalTask)):
-								if (event in i.events and (i.after is None or now >= i.after) and
-								                          (i.before is None or now < i.before)):
-									if (i.timeout is not None and now > (i.after + i.timeout)):
-										i.count = 0
-									else:
-										await self.bot.modules.core.job_queue.add_job(
-											Job(i.call, before=i.before))
-									if (i.count is not None): i.count -= 1
-								if ((i.count is not None and i.count <= 0) or
-								    (i.before is not None and now >= i.before)): tasks.remove(i)
-					finally: event_queue.task_done()
+				try:
+					for i in tasks.copy():
+						if (isinstance(i, ConditionalTask)):
+							if (event in i.events and (i.after is None or now >= i.after) and
+							                          (i.before is None or now < i.before)):
+								if (i.timeout is not None and now > (i.after + i.timeout)):
+									i.count = 0
+								else:
+									await self.bot.modules.core.job_queue.add_job(
+										Job(i.call, before=i.before))
+								if (i.count is not None): i.count -= 1
+							if ((i.count is not None and i.count <= 0) or
+							    (i.before is not None and now >= i.before)): tasks.remove(i)
+				finally: self._event_queue.task_done()
 
 		await asyncio.sleep(0.01) # XXX FIXME
 
@@ -168,8 +177,7 @@ class CronModule(CoreModule):
 			tasks.remove(task)
 
 	async def handle_event(self, event: str):
-		async with self.event_queue as event_queue:
-			await event_queue.put(event)
+		await self._event_queue.put(event)
 
 # by Sdore, 2022
 # stbot.sdore.me
