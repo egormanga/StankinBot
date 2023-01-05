@@ -58,7 +58,7 @@ class APIModule(CoreModule):
 		return tuple(query[i] for i in args)
 
 	async def handle_schedule(self, request):
-		group = self.ensure_get_params(request.query, 'group')
+		group, = self.ensure_get_params(request.query, 'group')
 
 		async with self.bot.modules.backend.schedule.schedules as schedules:
 			try: schedule = schedules[group.upper()]

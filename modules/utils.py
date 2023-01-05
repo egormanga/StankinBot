@@ -1,6 +1,6 @@
 # StankinBot utility module
 
-import sys, time, locale, asyncio, inspect, operator, functools, importlib, traceback, collections
+import sys, time, locale, asyncio, inspect, operator, functools, importlib, itertools, traceback, collections
 from abc import ABCMeta, abstractmethod, abstractproperty
 from types import ModuleType, FunctionType, CoroutineType
 
@@ -74,6 +74,9 @@ def allslots(x):
 	return tuple(j
 	             for i in (x if (isinstance(x, type)) else x.__class__).mro()[::-1] if hasattr(i, '__slots__')
 	             for j in i.__slots__)
+
+@export
+def groupby(l, n): return (tuple(j for j in i if j is not None) for i in itertools.zip_longest(*(iter(l),)*n))
 
 @export
 def join_last(l: [str], *, sep=', ', last):
@@ -170,7 +173,10 @@ class XABC(metaclass=XABCMeta): # TODO: verify property types
 		for i in allslots(self):
 			a = str(annotations[i])
 			if (not a.startswith('...') and not a.startswith('--')):
-				setattr(self, i, kwargs.pop(i))
+				try: v = kwargs.pop(i)
+				except KeyError:
+					if (not isinstance(getattr(self.__class__, i, None), property)): raise
+				else: setattr(self, i, v)
 
 		if (kwargs): raise TypeError(f"{self.__class__.__name__}.__init__() got"
 		                             f" {'an extra argument' if (len(kwargs) == 1) else 'extra arguments'}:"

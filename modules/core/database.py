@@ -53,8 +53,8 @@ class DatabasedField(XABC):
 					                                   f"-{time.strftime('%Y.%m.%d-%H:%M:%S')}.bak"))
 					self.db.log(f"Warning: type of field {self.type}:{self.var} has changed from"
 					            f"{value.__class__.__name__} to {self.field.__base__.__name__}."
-					            f" Trying to cast it or fall back to clearing. A backup with name"
-					            f" {os.path.basename(backup)} has been created.")
+					            f" Trying to cast it or fall back to clearing. A backup with the name"
+					            f" '{os.path.basename(backup)}' has been created.")
 					try:
 						await self.set(value := self.field.__base__(value))
 					except Exception:
@@ -203,7 +203,7 @@ class DatabaseModule(CoreModule):
 			os.rename(self.path, backup := os.path.join(backupdir, f"{os.path.basename(self.path)}-corrupted-"
 			                                                       f"{time.strftime('%Y.%m.%d-%H:%M:%S')}.bak"))
 			self.log(f"Warning: creating a new database while another is present."
-			         f" A backup with name {os.path.basename(backup)} has been created.")
+			         f" A backup with the name '{os.path.basename(backup)}' has been created.")
 
 		db = {i: getattr(self, i) for i in self.db_fields}
 
