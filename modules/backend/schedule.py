@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import io, re, bs4, math, tabula, urllib, aiohttp, asyncio, datetime, itertools, traceback, collections
+import io, re, bs4, math, tabula, urllib, aiohttp, asyncio, datetime, functools, itertools, traceback, collections
 from . import BackendModule
 from ..core.database import databased
 from ..utils import *
@@ -40,7 +40,7 @@ class Schedule(XABC):
 
 		name: str
 		type: str
-		lecturer: str
+		lecturer: str | None
 		location: Location
 		group: Group
 		time: (datetime.time, datetime.time)
@@ -79,7 +79,7 @@ class Schedule(XABC):
 			return res
 
 		@staticmethod
-		def parse_dates(s: str, *, year=datetime.date.today().year) -> [datetime.date]:
+		def parse_dates(s: str, /, *, year=datetime.date.today().year) -> [datetime.date]:
 			res = list()
 
 			for i in s.casefold().split(','):
@@ -104,9 +104,7 @@ class Schedule(XABC):
 			return res
 
 		@classmethod
-		def from_str(cls, s, group, times):
-			name = s
-
+		def from_str(cls, s: str, /, *, group: str, times):
 			m = re.match(r'''
 				\s*(?P<name>.+?)\.
 				\s*(?:(?P<lecturer>[\w .]+)\.)?
@@ -120,7 +118,7 @@ class Schedule(XABC):
 			name = m['name']
 			lecturer = (m['lecturer'].rstrip('.')+'.' if (m['lecturer']) else None)
 			type = m['type']
-			subgroup = m['subgroup'] or None
+			subgroup = (m['subgroup'] or None)
 			room = m['room']
 			time = (times[0][0], times[-1][1])
 			breaks = cls.parse_breaks(times)
@@ -134,6 +132,14 @@ class Schedule(XABC):
 
 	group: str
 	pairs: [[[Pair]]]
+
+	def __ior__(self, other):
+		for day_a, day_b in zip(self.pairs, other.pairs):
+			for pair_a, pair_b in zip(day_a, day_b):
+				for i in pair_b:
+					bisect.insort(pair_a, i, key=operator.attrgetter('time'))
+
+		return self
 
 	def to_json(self):
 		return {
@@ -168,7 +174,7 @@ class Schedule(XABC):
 					s += ' '+t
 					if (']' in s):
 						t, br, s = map(str.strip, s.partition(']'))
-						p.add(cls.Pair.from_str(t+br, group, times[ii:ii+width]))
+						p.add(cls.Pair.from_str(t+br, group=group, times=times[ii:ii+width]))
 
 				for o in range(width):
 					pairs[wd-1][ii+o] |= p
@@ -176,6 +182,78 @@ class Schedule(XABC):
 		pairs = tuple(pairs.values())
 
 		return cls(group=group, pairs=pairs)
+
+class ExamSchedule(Schedule):
+	class ExamPair(Schedule.Pair):
+		def __init__(self, *args, type='экзамен', date, **kwargs):
+			super().__init__(*args, type=type, breaks=[], dates=[date], **kwargs)
+
+		@property
+		def date(self):
+			return only(self.dates)
+
+		@classmethod
+		def from_str(cls, s: str, /, *, name: str, lecturer: str, group: str, date: datetime.date):
+			m = re.match(r'''
+				\s*(?P<from>\d+:\d+)
+				\s*-?
+				\s*(?P<to>\d+:\d+)
+				\s*(?P<room>.+)
+			''', s, re.X)
+
+			time = tuple(map(lambda x: datetime.time(*map(int, x.split(':'))), (m['from'], m['to'])))
+			room = m['room']
+
+			location = cls.Location(room=room)
+			group = cls.Group(group=group, subgroup=None)
+
+			return cls(name=name, type=type, lecturer=lecturer, location=location, group=group, time=time, date=date)
+
+	class ConsultationPair(ExamPair):
+		def __init__(self, *args, type='консультация', **kwargs):
+			super().__init__(*args, type=type, **kwargs)
+
+		@classmethod
+		def from_str(cls, s: str, /, *, name: str, lecturer: str, group: str):
+			m = re.match(r'''
+				\s*(?P<type>\w+):\s*
+				\s*(?P<date>\d+\.\d+\.\d+)
+				\s*(?P<time>\d+:\d+)
+				\s*(?P<room>.+)
+			''', s, re.X)
+
+			type = m['type']
+			date = m['date']
+			time = (datetime.time(*map(int, m['time'].split(':'))),)*2
+			room = m['room']
+
+			location = cls.Location(room=room)
+			group = cls.Group(group=group, subgroup=None)
+
+			return cls(name=name, type=type, lecturer=lecturer, location=location, group=group, time=time, date=date)
+
+	exams: [ExamPair]
+	consultations: [ConsultationPair]
+
+	@property
+	def pairs(self):
+		return tuple([[i] for i in v] for k, v in sorted(itertools.groupby(itertools.chain(self.exams, self.consultations), key=lambda x: x.date.weekday())))
+
+	@classmethod
+	def from_table(cls, group, table) -> ExamSchedule:
+		exams = list()
+		consultations = list()
+
+		for consultation, exam, subject in groupby(table, 3):
+			name = subject[1]['text'].strip()
+			try: lecturer = (exam[2]['text'].strip().rstrip('.') + '.')
+			except IndexError: lecturer = None # TODO FIXME?
+			date = datetime.datetime.strptime(exam[0]['text'].strip(), '%d.%m.%Y').date()
+
+			exams.append(cls.ExamPair.from_str(exam[1]['text'].strip(), name=name, lecturer=lecturer, group=group, date=date))
+			consultations.append(cls.ConsultationPair.from_str(consultation[2]['text'].strip(), name=name, lecturer=lecturer, group=group))
+
+		return cls(group=group, exams=exams, consultations=consultations)
 
 @export
 class ScheduleModule(BackendModule):
@@ -207,8 +285,8 @@ class ScheduleModule(BackendModule):
 		return urls
 
 	@staticmethod
-	def _read_pdf(f):
-		return tabula.read_pdf(f, output_format='json', pages='all', multiple_tables=False, lattice=True)
+	def _read_pdf(f, lattice=True, stream=False):
+		return tabula.read_pdf(f, output_format='json', pages='all', multiple_tables=False, lattice=lattice, stream=stream)
 
 	async def get_schedule(self, group, url) -> Schedule:
 		url = url.removeprefix(self.bot.modules.backend.edu_api.base_url)
@@ -221,6 +299,14 @@ class ScheduleModule(BackendModule):
 			data = await loop.run_in_executor(None, self._read_pdf, f)
 
 		table = only(i['data'] for i in data)
+
+		if ('консультация' in table[0][1]['text']):
+			with io.BytesIO(content) as f:
+				data = await loop.run_in_executor(None, functools.partial(self._read_pdf, lattice=False, stream=True), f)
+
+			table = only(i['data'] for i in data)
+
+			return ExamSchedule.from_table(group, table)
 
 		return Schedule.from_table(group, table)
 
@@ -239,7 +325,9 @@ class ScheduleModule(BackendModule):
 			if (isinstance(i, Exception)):
 				print(f"Failed to parse schedule: {format_exc(i)}"); traceback.print_exception(i)
 				continue
-			res[i.group] = i
+			try: sched = res[i.group]
+			except KeyError: res[i.group] = i
+			else: sched |= i
 
 		return res
 
